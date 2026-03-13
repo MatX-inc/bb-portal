@@ -47,7 +47,7 @@ func (r MissReason) EnumIndex() int32 {
 
 // String Enum helper method.
 func (r MissReason) String() string {
-	return [...]string{
+	names := [...]string{
 		"DIFFERENT_ACTION_KEY",
 		"DIFFERENT_DEPS",
 		"DIFFERENT_ENVIRONMENT",
@@ -55,7 +55,11 @@ func (r MissReason) String() string {
 		"CORRUPTED_CACHE_ENTRY",
 		"NOT_CACHED",
 		"UNCONDITIONAL_EXECUTION",
-	}[r]
+	}
+	if r < 0 || int(r) >= len(names) {
+		return "UNKNOWN"
+	}
+	return names[r]
 }
 
 // TestStatus ENUM.
