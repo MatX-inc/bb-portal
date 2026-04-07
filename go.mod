@@ -51,7 +51,7 @@ require (
 	golang.org/x/sync v0.19.0
 	google.golang.org/genproto v0.0.0-20260226221140-a57be14db171
 	google.golang.org/genproto/googleapis/bytestream v0.0.0-20260226221140-a57be14db171
-	google.golang.org/grpc v1.79.1
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	mvdan.cc/gofumpt v0.9.2
 )
