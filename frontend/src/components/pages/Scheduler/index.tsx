@@ -1,9 +1,10 @@
 import { CalendarFilled } from "@ant-design/icons";
-import { Row, Space } from "antd";
+import { Row, Space, Typography } from "antd";
 import type React from "react";
 import PlatformQueuesTable from "@/components/PlatformQueuesTable";
 import PortalCard from "@/components/PortalCard";
 import { SchedulerStatistics } from "@/components/SchedulerStatistics";
+import TokenPoolsTable from "@/components/TokenPoolsTable";
 
 export const SchedulerPage: React.FC = () => {
   return (
@@ -16,7 +17,12 @@ export const SchedulerPage: React.FC = () => {
           <SchedulerStatistics />
         </Row>
         <Row>
+          <Typography.Title level={5}>Platform queues</Typography.Title>
           <PlatformQueuesTable />
+        </Row>
+        <Row>
+          <Typography.Title level={5}>Token pools</Typography.Title>
+          <TokenPoolsTable />
         </Row>
       </Space>
     </PortalCard>
