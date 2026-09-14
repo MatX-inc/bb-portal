@@ -28,7 +28,7 @@ require (
 	github.com/bazelbuild/buildtools v0.0.0-20260528135316-84fa6c32aee6
 	github.com/bazelbuild/remote-apis v0.0.0-20260331222004-becdd8f9ff81
 	github.com/bazelbuild/rules_go v0.62.0
-	github.com/buildbarn/bb-remote-execution v0.0.0-20260614164626-1ae1eed2501f
+	github.com/buildbarn/bb-remote-execution v0.0.0-20260912013640-660c1e352089
 	github.com/buildbarn/bb-storage v0.0.0-20260805174928-33530b6bb903
 	github.com/fergusstrange/embedded-postgres v1.34.0
 	github.com/google/uuid v1.6.0
