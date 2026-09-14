@@ -16,6 +16,7 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/jmespath"
 	auth_pb "github.com/buildbarn/bb-storage/pkg/proto/auth"
+	"github.com/buildbarn/bb-storage/pkg/testutil"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
@@ -661,7 +662,7 @@ func TestListOperations(t *testing.T) {
 			PageSize: 5,
 		})
 		require.NoError(t, err)
-		require.Equal(t, clientResponse, resp)
+		testutil.RequireEqualProto(t, clientResponse, resp)
 	})
 
 	t.Run("FilterOperations", func(t *testing.T) {

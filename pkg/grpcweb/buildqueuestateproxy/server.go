@@ -5,14 +5,49 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 
-	"github.com/buildbarn/bb-portal/internal/api/common"
 	"github.com/buildbarn/bb-remote-execution/pkg/proto/buildqueuestate"
 	"github.com/buildbarn/bb-storage/pkg/auth"
 	"github.com/buildbarn/bb-storage/pkg/util"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/buildbarn/bb-portal/internal/api/common"
+)
+
+var (
+	buildQueueStateProxyPrometheusMetrics sync.Once
+
+	// Sizes of the pages fetched from the scheduler. Completed operations
+	// embed their ExecuteResponse, so a page's size is bounded by the
+	// client's gRPC receive limit rather than by listOperationsPageSize.
+	buildQueueStateProxyListOperationsPageSizeBytes = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: "bb_portal",
+			Subsystem: "build_queue_state_proxy",
+			Name:      "list_operations_page_size_bytes",
+			Help:      "Serialized size of each ListOperations page received from the scheduler.",
+			// 2 MiB steps between 4 and 16 MiB so alerts can be placed at
+			// fractions of a receive limit in that range.
+			Buckets: []float64{
+				64 << 10, 256 << 10, 1 << 20, 2 << 20, 4 << 20, 6 << 20, 8 << 20,
+				10 << 20, 12 << 20, 14 << 20, 16 << 20, 24 << 20, 32 << 20, 64 << 20,
+			},
+		},
+	)
+	buildQueueStateProxyListOperationsOperationSizeBytes = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: "bb_portal",
+			Subsystem: "build_queue_state_proxy",
+			Name:      "list_operations_operation_size_bytes",
+			Help:      "Serialized size of each OperationState received from the scheduler.",
+			Buckets:   prometheus.ExponentialBuckets(256, 2, 17),
+		},
+	)
 )
 
 // BuildQueueStateServerImpl is a gRPC server that forwards requests to a BuildQueueStateClient.
@@ -27,6 +62,11 @@ type BuildQueueStateServerImpl struct {
 // given client. It also takes an authorizer to filter out the queues that the
 // user is not allowed to see.
 func NewBuildQueueStateServerImpl(client buildqueuestate.BuildQueueStateClient, readAuthorizer, killOperationsAuthorizer auth.Authorizer, listOperationsPageSize uint32) *BuildQueueStateServerImpl {
+	buildQueueStateProxyPrometheusMetrics.Do(func() {
+		prometheus.MustRegister(buildQueueStateProxyListOperationsPageSizeBytes)
+		prometheus.MustRegister(buildQueueStateProxyListOperationsOperationSizeBytes)
+	})
+
 	return &BuildQueueStateServerImpl{
 		client:                   client,
 		readAuthorizer:           readAuthorizer,
@@ -63,6 +103,10 @@ func (s *BuildQueueStateServerImpl) ListOperations(ctx context.Context, req *bui
 		})
 		if err != nil {
 			return nil, err
+		}
+		buildQueueStateProxyListOperationsPageSizeBytes.Observe(float64(proto.Size(response)))
+		for _, operation := range response.Operations {
+			buildQueueStateProxyListOperationsOperationSizeBytes.Observe(float64(proto.Size(operation)))
 		}
 		operations = append(operations, response.Operations...)
 		if len(response.Operations) == 0 || uint32(len(response.Operations)) < s.listOperationsPageSize || response.PaginationInfo.TotalEntries == uint32(len(operations)) {
