@@ -611,7 +611,8 @@ func TestListOperations(t *testing.T) {
 					Operations:     []*buildqueuestate.OperationState{},
 					PaginationInfo: &buildqueuestate.PaginationInfo{},
 				}, nil
-			})
+			},
+		)
 
 		_, err := bqsServer.ListOperations(ctx, &buildqueuestate.ListOperationsRequest{
 			PageSize:                      5,
