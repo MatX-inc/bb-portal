@@ -312,7 +312,7 @@ export interface TokenPoolState {
    * are still waiting for a worker. Together with 'in_use' this is
    * the number of tokens that cannot be handed out.
    */
-  reserved: number;
+  reservedCount: number;
 }
 
 export interface InvocationChildState {
@@ -1231,10 +1231,10 @@ export const OperationState: MessageFns<OperationState> = {
       writer.uint32(120).int32(message.digestFunction);
     }
     for (const v of message.tokenRequirements) {
-      TokenRequirement.encode(v!, writer.uint32(130).fork()).join();
+      TokenRequirement.encode(v!, writer.uint32(802).fork()).join();
     }
     if (message.blockedOnToken !== "") {
-      writer.uint32(138).string(message.blockedOnToken);
+      writer.uint32(810).string(message.blockedOnToken);
     }
     return writer;
   },
@@ -1350,16 +1350,16 @@ export const OperationState: MessageFns<OperationState> = {
           message.digestFunction = reader.int32() as any;
           continue;
         }
-        case 16: {
-          if (tag !== 130) {
+        case 100: {
+          if (tag !== 802) {
             break;
           }
 
           message.tokenRequirements.push(TokenRequirement.decode(reader, reader.uint32()));
           continue;
         }
-        case 17: {
-          if (tag !== 138) {
+        case 101: {
+          if (tag !== 810) {
             break;
           }
 
@@ -1778,7 +1778,7 @@ export const InvocationState: MessageFns<InvocationState> = {
       writer.uint32(72).uint32(message.queuedChildrenCount);
     }
     if (message.blockedOperationsCount !== 0) {
-      writer.uint32(80).uint32(message.blockedOperationsCount);
+      writer.uint32(800).uint32(message.blockedOperationsCount);
     }
     return writer;
   },
@@ -1846,8 +1846,8 @@ export const InvocationState: MessageFns<InvocationState> = {
           message.queuedChildrenCount = reader.uint32();
           continue;
         }
-        case 10: {
-          if (tag !== 80) {
+        case 100: {
+          if (tag !== 800) {
             break;
           }
 
@@ -2034,7 +2034,7 @@ export const InvocationState_InvocationObjectCount: MessageFns<InvocationState_I
 };
 
 function createBaseTokenPoolState(): TokenPoolState {
-  return { instanceNamePrefix: "", name: "", capacity: 0, inUse: 0, blockedTasksCount: 0, reserved: 0 };
+  return { instanceNamePrefix: "", name: "", capacity: 0, inUse: 0, blockedTasksCount: 0, reservedCount: 0 };
 }
 
 export const TokenPoolState: MessageFns<TokenPoolState> = {
@@ -2054,8 +2054,8 @@ export const TokenPoolState: MessageFns<TokenPoolState> = {
     if (message.blockedTasksCount !== 0) {
       writer.uint32(40).uint32(message.blockedTasksCount);
     }
-    if (message.reserved !== 0) {
-      writer.uint32(48).uint32(message.reserved);
+    if (message.reservedCount !== 0) {
+      writer.uint32(48).uint32(message.reservedCount);
     }
     return writer;
   },
@@ -2112,7 +2112,7 @@ export const TokenPoolState: MessageFns<TokenPoolState> = {
             break;
           }
 
-          message.reserved = reader.uint32();
+          message.reservedCount = reader.uint32();
           continue;
         }
       }
@@ -2143,7 +2143,11 @@ export const TokenPoolState: MessageFns<TokenPoolState> = {
         : isSet(object.blocked_tasks_count)
         ? globalThis.Number(object.blocked_tasks_count)
         : 0,
-      reserved: isSet(object.reserved) ? globalThis.Number(object.reserved) : 0,
+      reservedCount: isSet(object.reservedCount)
+        ? globalThis.Number(object.reservedCount)
+        : isSet(object.reserved_count)
+        ? globalThis.Number(object.reserved_count)
+        : 0,
     };
   },
 
@@ -2164,8 +2168,8 @@ export const TokenPoolState: MessageFns<TokenPoolState> = {
     if (message.blockedTasksCount !== 0) {
       obj.blockedTasksCount = Math.round(message.blockedTasksCount);
     }
-    if (message.reserved !== 0) {
-      obj.reserved = Math.round(message.reserved);
+    if (message.reservedCount !== 0) {
+      obj.reservedCount = Math.round(message.reservedCount);
     }
     return obj;
   },
@@ -2180,7 +2184,7 @@ export const TokenPoolState: MessageFns<TokenPoolState> = {
     message.capacity = object.capacity ?? 0;
     message.inUse = object.inUse ?? 0;
     message.blockedTasksCount = object.blockedTasksCount ?? 0;
-    message.reserved = object.reserved ?? 0;
+    message.reservedCount = object.reservedCount ?? 0;
     return message;
   },
 };
@@ -2818,13 +2822,13 @@ export const ListOperationsRequest: MessageFns<ListOperationsRequest> = {
       writer.uint32(32).int32(message.filterStage);
     }
     if (message.filterTokenName !== "") {
-      writer.uint32(42).string(message.filterTokenName);
+      writer.uint32(802).string(message.filterTokenName);
     }
     if (message.filterTokenInstanceNamePrefix !== "") {
-      writer.uint32(50).string(message.filterTokenInstanceNamePrefix);
+      writer.uint32(810).string(message.filterTokenInstanceNamePrefix);
     }
     if (message.filterTokenBlockedOnly !== false) {
-      writer.uint32(56).bool(message.filterTokenBlockedOnly);
+      writer.uint32(816).bool(message.filterTokenBlockedOnly);
     }
     return writer;
   },
@@ -2868,24 +2872,24 @@ export const ListOperationsRequest: MessageFns<ListOperationsRequest> = {
           message.filterStage = reader.int32() as any;
           continue;
         }
-        case 5: {
-          if (tag !== 42) {
+        case 100: {
+          if (tag !== 802) {
             break;
           }
 
           message.filterTokenName = reader.string();
           continue;
         }
-        case 6: {
-          if (tag !== 50) {
+        case 101: {
+          if (tag !== 810) {
             break;
           }
 
           message.filterTokenInstanceNamePrefix = reader.string();
           continue;
         }
-        case 7: {
-          if (tag !== 56) {
+        case 102: {
+          if (tag !== 816) {
             break;
           }
 
@@ -3312,7 +3316,7 @@ export const ListPlatformQueuesResponse: MessageFns<ListPlatformQueuesResponse> 
       PlatformQueueState.encode(v!, writer.uint32(10).fork()).join();
     }
     for (const v of message.tokenPools) {
-      TokenPoolState.encode(v!, writer.uint32(18).fork()).join();
+      TokenPoolState.encode(v!, writer.uint32(802).fork()).join();
     }
     return writer;
   },
@@ -3332,8 +3336,8 @@ export const ListPlatformQueuesResponse: MessageFns<ListPlatformQueuesResponse> 
           message.platformQueues.push(PlatformQueueState.decode(reader, reader.uint32()));
           continue;
         }
-        case 2: {
-          if (tag !== 18) {
+        case 100: {
+          if (tag !== 802) {
             break;
           }
 

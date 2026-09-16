@@ -51,9 +51,11 @@ const inUseColumn: ColumnType<TokenPoolState> = {
 };
 
 const reservedColumn: ColumnType<TokenPoolState> = {
-  key: "reserved",
+  key: "reservedCount",
   title: "Reserved",
-  render: (_, record) => <Typography.Text>{record.reserved}</Typography.Text>,
+  render: (_, record) => (
+    <Typography.Text>{record.reservedCount}</Typography.Text>
+  ),
 };
 
 // Waiters: queued operations parked in the pool's FIFO.

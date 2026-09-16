@@ -44,7 +44,7 @@ git_override(
 git_override(
     module_name = "com_github_buildbarn_bb_remote_execution",
     # Token pools: MatX-inc/bb-remote-execution#5.
-    commit = "660c1e35208911446df5e63ee474f99db354b051",
+    commit = "a3a34e38a75b64c2e7c6027e059ecbd2a8a16a78",
     remote = "https://github.com/MatX-inc/bb-remote-execution.git",
 )
 
