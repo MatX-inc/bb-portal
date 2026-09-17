@@ -10,6 +10,7 @@ import {
   operationsStateToBrowserSplat,
 } from "../../OperationStateDisplay/utils";
 import OperationStatusTag from "../../OperationStatusTag";
+import OperationTokensDisplay from "../../OperationTokensDisplay";
 
 const operationNameColumn: ColumnType<OperationState> = {
   key: "name",
@@ -87,6 +88,12 @@ const targetIdColumn: ColumnType<OperationState> = {
   render: (_, record) => record.targetId,
 };
 
+const tokensColumn: ColumnType<OperationState> = {
+  key: "tokens",
+  title: "Tokens",
+  render: (_, record) => <OperationTokensDisplay operation={record} />,
+};
+
 const statusColumn: ColumnType<OperationState> = {
   key: "status",
   title: "Status",
@@ -99,6 +106,7 @@ const getColumns = (): TableColumnsType<OperationState> => {
     operationNameColumn,
     actionDigestColumn,
     targetIdColumn,
+    tokensColumn,
     statusColumn,
   ];
 };
