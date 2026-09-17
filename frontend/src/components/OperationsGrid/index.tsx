@@ -7,13 +7,17 @@ import {
   ExecutionStage_Value,
   RequestMetadata,
 } from "@/lib/grpc-client/build/bazel/remote/execution/v2/remote_execution";
-import type { OperationsFilterParams } from "@/routes/operations.index";
+import type {
+  OperationsFilterParams,
+  OperationsTokenFilterParams,
+} from "@/routes/operations.index";
 import themeStyles from "@/theme/theme.module.css";
 import {
   OperationFilterSelector,
   OperationStatus,
 } from "../OperationFilterSelector";
 import OperationsInvocationFilter from "../OperationsInvocationFilter";
+import OperationsTokenFilter from "../OperationsTokenFilter";
 import PortalAlert from "../PortalAlert";
 import getColumns from "./Columns";
 
@@ -21,10 +25,18 @@ const PAGE_SIZE = 1000;
 
 interface Props {
   filter: OperationsFilterParams;
+  tokenFilter?: OperationsTokenFilterParams;
+  initialStatus?: OperationStatus;
 }
 
-const OperationsTable: React.FC<Props> = ({ filter }) => {
-  const [statusFilter, setStatusFilter] = useState(OperationStatus.ALL);
+const OperationsTable: React.FC<Props> = ({
+  filter,
+  tokenFilter,
+  initialStatus,
+}) => {
+  const [statusFilter, setStatusFilter] = useState(
+    initialStatus ?? OperationStatus.ALL,
+  );
 
   const executionStageByStatus: Record<
     OperationStatus,
@@ -49,7 +61,7 @@ const OperationsTable: React.FC<Props> = ({ filter }) => {
   };
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["operationsTable", filter, statusFilter],
+    queryKey: ["operationsTable", filter, tokenFilter, statusFilter],
     queryFn: buildQueueStateClient.listOperations.bind(window, {
       pageSize: PAGE_SIZE,
       filterInvocationId: filter
@@ -61,6 +73,9 @@ const OperationsTable: React.FC<Props> = ({ filter }) => {
           }
         : undefined,
       filterStage: executionStage,
+      filterTokenName: tokenFilter?.name,
+      filterTokenInstanceNamePrefix: tokenFilter?.instanceNamePrefix,
+      filterTokenBlockedOnly: tokenFilter?.blockedOnly,
     }),
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnMount: "always",
@@ -90,6 +105,7 @@ const OperationsTable: React.FC<Props> = ({ filter }) => {
         />
       </div>
       <OperationsInvocationFilter filter={filter} />
+      <OperationsTokenFilter tokenFilter={tokenFilter} />
       <Table
         loading={isLoading}
         dataSource={data?.operations}

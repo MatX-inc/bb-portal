@@ -7,6 +7,7 @@ import { readableDurationFromDates } from "@/utils/time";
 import { generateBrowserSplat } from "@/utils/urlGenerator";
 import { historicalExecuteResponseDigestFromOperation } from "../OperationStateDisplay/utils";
 import OperationStatusTag from "../OperationStatusTag";
+import OperationTokensDisplay from "../OperationTokensDisplay";
 import { operationsStateToBrowserSplat } from "./utils";
 
 const operationNameColumn: ColumnType<OperationState> = {
@@ -85,6 +86,12 @@ const targetIdColumn: ColumnType<OperationState> = {
   render: (_, record) => record.targetId,
 };
 
+const tokensColumn: ColumnType<OperationState> = {
+  key: "tokens",
+  title: "Tokens",
+  render: (_, record) => <OperationTokensDisplay operation={record} />,
+};
+
 const statusColumn: ColumnType<OperationState> = {
   key: "status",
   title: "Status",
@@ -97,6 +104,7 @@ const getColumns = (): TableColumnsType<OperationState> => {
     operationNameColumn,
     actionDigestColumn,
     targetIdColumn,
+    tokensColumn,
     statusColumn,
   ];
 };

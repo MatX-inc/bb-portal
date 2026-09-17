@@ -98,10 +98,13 @@ func (s *BuildQueueStateServerImpl) ListOperations(ctx context.Context, req *bui
 	// avoids the default grpc max message size limit of 4MB.
 	for {
 		response, err := s.client.ListOperations(ctx, &buildqueuestate.ListOperationsRequest{
-			PageSize:           s.listOperationsPageSize,
-			FilterInvocationId: req.FilterInvocationId,
-			FilterStage:        req.FilterStage,
-			StartAfter:         startAfter,
+			PageSize:                      s.listOperationsPageSize,
+			FilterInvocationId:            req.FilterInvocationId,
+			FilterStage:                   req.FilterStage,
+			FilterTokenName:               req.FilterTokenName,
+			FilterTokenInstanceNamePrefix: req.FilterTokenInstanceNamePrefix,
+			FilterTokenBlockedOnly:        req.FilterTokenBlockedOnly,
+			StartAfter:                    startAfter,
 		})
 		if err != nil {
 			return nil, err

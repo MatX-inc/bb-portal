@@ -14,6 +14,7 @@ import {
 import { generateBrowserSplat } from "@/utils/urlGenerator";
 import OperationStatusTag from "../OperationStatusTag";
 import { operationsStateToBrowserSplat } from "../OperationsGrid/utils";
+import OperationTokensDisplay from "../OperationTokensDisplay";
 import PropertyTagList from "../PropertyTagList";
 import { historicalExecuteResponseDigestFromOperation } from "./utils";
 
@@ -50,6 +51,9 @@ const OperationStateDisplay: React.FC<Props> = ({ operation }) => {
       </Descriptions.Item>
       <Descriptions.Item label="Size class">
         {operation.invocationName?.sizeClassQueueName?.sizeClass}
+      </Descriptions.Item>
+      <Descriptions.Item label="Tokens">
+        <OperationTokensDisplay operation={operation} />
       </Descriptions.Item>
       <Descriptions.Item label="Invocation IDs">
         <ul>
