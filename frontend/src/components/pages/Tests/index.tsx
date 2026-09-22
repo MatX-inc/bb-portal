@@ -1,7 +1,7 @@
 import { ExperimentFilled } from "@ant-design/icons";
 import { Alert } from "antd";
 import type React from "react";
-import PortalCard from "@/components/PortalCard";
+import { PortalCard } from "@/components/PortalCard";
 import TestGrid from "@/components/TestGrid";
 
 type Props = React.ComponentProps<typeof TestGrid>;
@@ -14,7 +14,7 @@ export const TestsPage: React.FC<Props> = (props) => {
         <Alert
           key="search-by-label"
           showIcon
-          message="Search by label and/or instance name to further refine your result"
+          title="Search by label and/or instance name to further refine your result"
           type="info"
         />,
       ]}

@@ -7,12 +7,10 @@ import (
 	"github.com/buildbarn/bb-portal/pkg/grpcweb/buildqueuestateproxy"
 	"github.com/buildbarn/bb-portal/pkg/proto/configuration/bb_portal"
 	"github.com/buildbarn/bb-remote-execution/pkg/proto/buildqueuestate"
-	"github.com/buildbarn/bb-storage/pkg/auth"
 	auth_configuration "github.com/buildbarn/bb-storage/pkg/auth/configuration"
 	bb_grpc "github.com/buildbarn/bb-storage/pkg/grpc"
 	"github.com/buildbarn/bb-storage/pkg/program"
 	"github.com/buildbarn/bb-storage/pkg/util"
-	"github.com/gorilla/mux"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	go_grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -27,11 +25,21 @@ func NewSchedulerService(
 	siblingsGroup program.Group,
 	dependenciesGroup program.Group,
 	grpcClientFactory bb_grpc.ClientFactory,
-	instanceNameAuthorizer auth.Authorizer,
-	router *mux.Router,
+	router *http.ServeMux,
 ) error {
+	if router == nil {
+		return status.Error(codes.NotFound, "Failed to create Graphql endpoint. No http server configured")
+	}
 	if configuration.ListOperationsPageSize <= 0 {
 		return status.Error(codes.NotFound, "No ListOperationsPageSize configured (or it is set to 0)")
+	}
+
+	if configuration.ReadAuthorizer == nil {
+		return status.Error(codes.NotFound, "No ReadAuthorizer configured")
+	}
+	readAuthorizer, err := auth_configuration.DefaultAuthorizerFactory.NewAuthorizerFromConfiguration(configuration.ReadAuthorizer, dependenciesGroup, grpcClientFactory)
+	if err != nil {
+		return util.StatusWrap(err, "Failed to create ReadAuthorizer")
 	}
 
 	if configuration.KillOperationsAuthorizer == nil {
@@ -50,14 +58,14 @@ func NewSchedulerService(
 		return util.StatusWrap(err, "Failed to create gRPC client for BuildQueueState")
 	}
 	buildQueueStateClient := buildqueuestate.NewBuildQueueStateClient(grpcClient)
-	buildQueueStateServer := buildqueuestateproxy.NewBuildQueueStateServerImpl(buildQueueStateClient, instanceNameAuthorizer, killOperationsAuthorizer, configuration.ListOperationsPageSize)
+	buildQueueStateServer := buildqueuestateproxy.NewBuildQueueStateServerImpl(buildQueueStateClient, readAuthorizer, killOperationsAuthorizer, configuration.ListOperationsPageSize)
 
 	grpcServer := go_grpc.NewServer()
 	grpcWebServer := grpcweb.WrapServer(grpcServer)
 	buildqueuestate.RegisterBuildQueueStateServer(grpcServer, buildQueueStateServer)
 
-	router.PathPrefix(bb_grpcweb.GrpcWebEndpointPrefix + "/buildbarn.buildqueuestate.BuildQueueState/").Handler(http.StripPrefix(bb_grpcweb.GrpcWebEndpointPrefix, grpcWebServer))
-	router.HandleFunc("/api/v1/checkPermissions/killOperation/{operationName}", buildQueueStateServer.CheckKillOperationAuthorization).Methods("GET")
+	bb_grpcweb.AddGrpcWebEndpoint(router, grpcWebServer, "/buildbarn.buildqueuestate.BuildQueueState/")
+	router.HandleFunc("GET /api/v1/checkPermissions/killOperation/{operationName}", buildQueueStateServer.CheckKillOperationAuthorization)
 
 	return nil
 }

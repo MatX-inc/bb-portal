@@ -1,25 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Descriptions, Space, Spin, Typography } from "antd";
+import { Descriptions, Space, Typography } from "antd";
 import type React from "react";
-import { useEffect, useState } from "react";
-import { actionCacheClient } from "@/grpc/actionCacheClient";
-import { casByteStreamClient } from "@/grpc/casByteStreamClient";
-import { fileSystemAccessCacheClient } from "@/grpc/fileSystemAccessCacheClient";
-import { initialSizeClassCacheClient } from "@/grpc/initialSizeClassCacheClient";
-import type { Digest } from "@/lib/grpc-client/build/bazel/remote/execution/v2/remote_execution";
-import {
-  type BrowserPageParams,
-  BrowserPageType,
-} from "@/types/BrowserPageType";
+import type { BrowserPageParams } from "@/types/BrowserPageParams";
+import { BrowserPageType } from "@/types/BrowserPageType";
 import type { FileSystemAccessProfileReference } from "@/types/FileSystemAccessProfileReference";
 import { PATH_HASH_BASE_HASH } from "@/utils/bloomFilter";
-import { getReducedActionDigest_SHA256 } from "@/utils/digestFunctionUtils";
 import { readableFileSizeFromString } from "@/utils/filesize";
 import { readableDurationFromProtobufDuration } from "@/utils/time";
 import { generateBrowserSplat } from "@/utils/urlGenerator";
-import BrowserCommandDescription from "../BrowserCommandDescription";
-import BrowserDirectory from "../BrowserDirectory";
+import { ActionProperties } from "../ActionProperties";
+import { BrowserCommandDescription } from "../BrowserCommandDescription";
+import CopyBbClientdCommandButton from "../BrowserCommandDescription/CopyBbClientdCommandButton";
+import DownloadAsShellScriptButton from "../BrowserCommandDescription/DownloadAsShellScriptButton";
+import { BrowserDirectory, type CParams } from "../BrowserDirectory";
+import CopyBbClientdDirectoryButton from "../BrowserDirectory/CopyBbClientdDirectoryButton";
+import DownloadAsTarballButton from "../BrowserDirectory/DownloadAsTarballButton";
+import { DirectoryPrefetchDescription } from "../BrowserDirectory/directoryPrefetchDescription";
 import BrowserPreviousExecutionsDisplay from "../BrowserPreviousExecutionsDisplay";
 import BrowserResultDescription from "../BrowserResultDescription";
 import ConditionalToolInvocationLink from "../ConditionalToolInvocationLink";
@@ -32,62 +28,29 @@ import {
 import PortalAlert from "../PortalAlert";
 import PropertyTagList from "../PropertyTagList";
 import type { PropertyTagListEntry } from "../PropertyTagList/types";
-import CopyBbClientdActionButton from "./CopyBbClientdActionButton";
-import { fetchBrowserActionGrid } from "./fetch";
+import type { fetchBrowserActionGrid } from "./fetch";
 
 interface Params {
   browserPageParams: BrowserPageParams;
   showTitle?: boolean;
+  data: Awaited<ReturnType<typeof fetchBrowserActionGrid>>;
+  openDirsString: string | undefined;
 }
 
 const BrowserActionGrid: React.FC<Params> = ({
   browserPageParams,
   showTitle,
+  data,
+  openDirsString,
 }) => {
-  const [reducedActionDigest, setReducedActionDigest] = useState<
-    Digest | undefined
-  >(undefined);
-
-  const { data, isError, isPending, error } = useQuery({
-    queryKey: ["browserActionGrid", browserPageParams],
-    queryFn: fetchBrowserActionGrid.bind(
-      window,
-      browserPageParams,
-      actionCacheClient,
-      casByteStreamClient,
-      initialSizeClassCacheClient,
-      fileSystemAccessCacheClient,
-    ),
-  });
-
-  useEffect(() => {
-    (async () => {
-      if (!data || !data.action.commandDigest || !data.action.platform) {
-        setReducedActionDigest(undefined);
-        return;
-      }
-      setReducedActionDigest(
-        await getReducedActionDigest_SHA256(
-          data.action.commandDigest,
-          data.action.platform,
-        ),
-      );
-    })();
-  }, [data]);
-
-  if (isPending) {
-    return <Spin />;
-  }
-
-  if (isError) {
+  if (!data.action.commandDigest) {
     return (
       <PortalAlert
         showIcon
         type="error"
-        message="Error fetching action"
+        title="Error fetching action"
         description={
-          error.message ||
-          "Unknown error occurred while fetching data from the server."
+          "Error occurred while fetching data from the server; No command digest found."
         }
       />
     );
@@ -98,9 +61,9 @@ const BrowserActionGrid: React.FC<Params> = ({
     | undefined;
 
   if (data.fileSystemAccessProfile) {
-    if (data.action.commandDigest && data.action.platform) {
+    if (data.action.platform) {
       fileSystemAccessProfileReference = {
-        digest: reducedActionDigest,
+        digest: data.reducedActionDigest,
         pathHashesBaseHash: PATH_HASH_BASE_HASH,
       };
     }
@@ -114,78 +77,82 @@ const BrowserActionGrid: React.FC<Params> = ({
       (key) => ({ name: key, value: workerData[key] }) as PropertyTagListEntry,
     );
   };
-
+  const fileStructureData: CParams | undefined = data.action.inputRootDigest
+    ? {
+        instanceName: browserPageParams.instanceName,
+        digestFunction: browserPageParams.digestFunction,
+        digest: data.action.inputRootDigest,
+        action: data.action,
+        fileSystemAccessProfile: data.fileSystemAccessProfile,
+        reducedActionDigest: data.reducedActionDigest,
+        fileSystemAccessProfileReference,
+      }
+    : undefined;
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
-      {data.action ? (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-          {showTitle && (
-            <Typography.Title level={2}>
-              <Link
-                to="/browser/$"
-                params={{
-                  _splat: generateBrowserSplat(
-                    browserPageParams.instanceName,
-                    browserPageParams.digestFunction,
-                    data.actionDigest,
-                    BrowserPageType.Action,
-                  ),
-                }}
-                style={{ textDecoration: "underline" }}
-              >
-                Action
-              </Link>
-            </Typography.Title>
-          )}
-          <Descriptions
-            column={1}
-            size="small"
-            bordered
-            styles={{ label: { width: "25%" }, content: { width: "75%" } }}
-          >
-            {data.action.timeout && (
-              <Descriptions.Item label="Timeout:">
-                {readableDurationFromProtobufDuration(data.action.timeout)}
-              </Descriptions.Item>
-            )}
-            <Descriptions.Item label="Do not cache">
-              {data.action.doNotCache ? "Yes" : "No"}
-            </Descriptions.Item>
-            {data.action.platform && (
-              <Descriptions.Item label="Platform properties">
-                <PropertyTagList
-                  propertyList={data.action.platform.properties}
-                />
-              </Descriptions.Item>
-            )}
-          </Descriptions>
-          {data.action.commandDigest && data.action.inputRootDigest && (
-            <CopyBbClientdActionButton
-              browserPageParams={browserPageParams}
-              actionDigest={data.actionDigest}
-              commandDigest={data.action.commandDigest}
-              inputRootDigest={data.action.inputRootDigest}
-            />
-          )}
-        </Space>
-      ) : (
-        <Typography.Text>This action could not be found.</Typography.Text>
-      )}
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+      <Space
+        orientation="vertical"
+        size="middle"
+        style={{
+          display: "flex",
+          minWidth: 0,
+          overflow: "hidden",
+        }}
+      >
+        {showTitle && (
+          <Typography.Title level={2}>
+            <Link
+              to="/browser/$"
+              params={{
+                _splat: generateBrowserSplat(
+                  browserPageParams.instanceName,
+                  browserPageParams.digestFunction,
+                  data.actionDigest,
+                  BrowserPageType.Action,
+                ),
+              }}
+              style={{ textDecoration: "underline" }}
+            >
+              Action
+            </Link>
+          </Typography.Title>
+        )}
+        <ActionProperties
+          actionData={data}
+          browserPageParams={browserPageParams}
+        />
+      </Space>
 
       {data.casCommand ? (
-        <BrowserCommandDescription
-          browserPageParams={browserPageParams}
-          command={data.casCommand}
-          commandDigest={data.action.commandDigest}
-          showTitle={true}
-        />
+        <>
+          <BrowserCommandDescription
+            browserPageParams={browserPageParams}
+            command={data.casCommand}
+            commandDigest={data.action.commandDigest}
+            showTitle={true}
+          />
+          {data.action.commandDigest && (
+            <Space orientation="horizontal">
+              <CopyBbClientdCommandButton
+                digestFunction={browserPageParams.digestFunction}
+                instanceName={browserPageParams.instanceName}
+                commandDigest={data.action.commandDigest}
+              />
+              <DownloadAsShellScriptButton
+                digestFunction={browserPageParams.digestFunction}
+                instanceName={browserPageParams.instanceName}
+                commandDigest={data.action.commandDigest}
+              />
+            </Space>
+          )}
+        </>
       ) : (
         <Typography.Text>
           The command of this action could not be found.
         </Typography.Text>
       )}
 
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
         <Typography.Title level={2}>Result</Typography.Title>
         {data.executeResponse ? (
           <BrowserResultDescription
@@ -201,7 +168,7 @@ const BrowserActionGrid: React.FC<Params> = ({
       </Space>
 
       {data.action.inputRootDigest && (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Typography.Title level={2}>
             <Link
               to="/browser/$"
@@ -221,17 +188,36 @@ const BrowserActionGrid: React.FC<Params> = ({
               Input files
             </Link>
           </Typography.Title>
-          <BrowserDirectory
-            instanceName={browserPageParams.instanceName}
-            digestFunction={browserPageParams.digestFunction}
-            inputRootDigest={data.action.inputRootDigest}
-            fileSystemAccessProfile={data.fileSystemAccessProfile}
-            fileSystemAccessProfileReference={fileSystemAccessProfileReference}
-          />
+          {fileStructureData && (
+            <BrowserDirectory
+              baseData={fileStructureData}
+              openDirsString={openDirsString}
+              useBloomFilter={true}
+            />
+          )}
+          <Space orientation="vertical" size="small">
+            <DirectoryPrefetchDescription
+              prefetchDataExists={!!fileStructureData?.fileSystemAccessProfile}
+            />
+            {fileStructureData && (
+              <Space orientation="horizontal">
+                <CopyBbClientdDirectoryButton
+                  instanceName={fileStructureData.instanceName}
+                  digestFunction={fileStructureData.digestFunction}
+                  inputRootDigest={fileStructureData.digest}
+                />
+                <DownloadAsTarballButton
+                  instanceName={fileStructureData.instanceName}
+                  digestFunction={fileStructureData.digestFunction}
+                  directoryDigest={fileStructureData.digest}
+                />
+              </Space>
+            )}
+          </Space>
         </Space>
       )}
 
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
         <Typography.Title level={2}>Output files</Typography.Title>
         <FilesTable
           entries={filesTableEntriesFromActionResultAndCommand(
@@ -240,13 +226,13 @@ const BrowserActionGrid: React.FC<Params> = ({
             browserPageParams.instanceName,
             browserPageParams.digestFunction,
           )}
-          isPending={isPending}
+          isPending={false}
         />
       </Space>
 
       {data.executeResponse?.serverLogs &&
         Object.keys(data.executeResponse.serverLogs).length !== 0 && (
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
             <Typography.Title level={2}>Server logs</Typography.Title>
             <FilesTable
               entries={filesTableEntriesFromServerLogs(
@@ -254,13 +240,13 @@ const BrowserActionGrid: React.FC<Params> = ({
                 browserPageParams.instanceName,
                 browserPageParams.digestFunction,
               )}
-              isPending={isPending}
+              isPending={false}
             />
           </Space>
         )}
 
       {data.executeResponse?.result?.executionMetadata && (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Typography.Title level={2}>Execution metadata</Typography.Title>
 
           <Descriptions
@@ -293,7 +279,7 @@ const BrowserActionGrid: React.FC<Params> = ({
       )}
 
       {data.authenticationMetadata && (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Typography.Title level={3}>Authentication metadata</Typography.Title>
 
           <Descriptions
@@ -312,7 +298,7 @@ const BrowserActionGrid: React.FC<Params> = ({
       )}
 
       {data.requestMetadata && (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Typography.Title level={3}>Request metadata</Typography.Title>
 
           <Descriptions
@@ -351,7 +337,7 @@ const BrowserActionGrid: React.FC<Params> = ({
       )}
 
       {data.posixResourceUsage && (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Typography.Title level={3}>POSIX resource usage</Typography.Title>
 
           <Descriptions
@@ -394,7 +380,7 @@ const BrowserActionGrid: React.FC<Params> = ({
       )}
 
       {data.filePoolResourceUsage && (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Typography.Title level={3}>
             File pool resource usage
           </Typography.Title>
@@ -437,7 +423,7 @@ const BrowserActionGrid: React.FC<Params> = ({
       )}
 
       {data.inputRootResourceUsage && (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Typography.Title level={3}>
             Input root resource usage
           </Typography.Title>
@@ -459,7 +445,7 @@ const BrowserActionGrid: React.FC<Params> = ({
       )}
 
       {data.monetaryResourceUsage && (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Typography.Title level={3}>Monetary resource usage</Typography.Title>
 
           <Descriptions column={1} bordered>
@@ -473,12 +459,12 @@ const BrowserActionGrid: React.FC<Params> = ({
           </Descriptions>
         </Space>
       )}
-      {data.previousExecutionStats && reducedActionDigest && (
+      {data.previousExecutionStats && data.reducedActionDigest && (
         <BrowserPreviousExecutionsDisplay
           browserParams={browserPageParams}
           previousExecutionStats={data.previousExecutionStats}
           showTitle={true}
-          reducedActionDigest={reducedActionDigest}
+          reducedActionDigest={data.reducedActionDigest}
         />
       )}
     </Space>

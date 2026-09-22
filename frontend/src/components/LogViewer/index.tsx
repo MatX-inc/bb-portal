@@ -5,13 +5,14 @@ import {
 } from "@ant-design/icons";
 import { Button, Spin, Tooltip } from "antd";
 import type React from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import PortalAlert from "@/components/PortalAlert";
+import { PortalCard } from "@/components/PortalCard";
 import { useBbPortalMessage } from "@/context/MessageContext";
 import { readableFileSize } from "@/utils/filesize";
-import PortalCard from "../PortalCard";
 import { AnsiScrollingWindow } from "./ansiScrollWindow";
 import styles from "./index.module.css";
+import { SearchBar } from "./searchbar";
 
 export const SIZE_BYTE_LIMIT = 1_000_000; // 1MB
 
@@ -43,6 +44,14 @@ export const LogViewerCard: React.FC<Props> = ({
     return log?.match(HISTORICAL_EXECUTE_RESPONSE_REGEX)?.[0];
   }, [log]);
 
+  const [query, setQuery] = useState("");
+  const [matchIndexList, setMatchIndexList] = useState<number[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const logList = useMemo(() => {
+    if (!log) return [];
+    return log.split("\n");
+  }, [log]);
+
   const renderContent = useMemo(() => {
     if (loading) {
       return (
@@ -55,7 +64,7 @@ export const LogViewerCard: React.FC<Props> = ({
       return (
         <PortalAlert
           type="error"
-          message={error.message}
+          title={error.message}
           description={error.cause?.toString()}
           showIcon
           className={styles.alert}
@@ -66,7 +75,7 @@ export const LogViewerCard: React.FC<Props> = ({
       return (
         <PortalAlert
           type="error"
-          message="Output is too large to display."
+          title="Output is too large to display."
           description={`The size of the output is ${readableFileSize(logSizeBytes)}. Download the output to view it.`}
           showIcon
           className={styles.alert}
@@ -76,15 +85,31 @@ export const LogViewerCard: React.FC<Props> = ({
     if (!log) {
       return (
         <PortalAlert
-          message="There is no log information to display"
+          title="There is no log information to display"
           type="warning"
           showIcon
           className={styles.alert}
         />
       );
     }
-    return <AnsiScrollingWindow log={log} />;
-  }, [loading, error, logSizeBytes, log]);
+    return (
+      <AnsiScrollingWindow
+        log={logList}
+        query={query}
+        matchIndexList={matchIndexList}
+        currentMatchIndex={currentMatchIndex}
+      />
+    );
+  }, [
+    loading,
+    error,
+    logSizeBytes,
+    log,
+    query,
+    matchIndexList,
+    currentMatchIndex,
+    logList,
+  ]);
 
   return (
     <PortalCard
@@ -98,6 +123,17 @@ export const LogViewerCard: React.FC<Props> = ({
         </div>,
       ]}
       extraBits={[
+        <div key={"search bar"}>
+          <SearchBar
+            query={query}
+            setQuery={setQuery}
+            matchIndexList={matchIndexList}
+            currentMatchIndex={currentMatchIndex}
+            setCurrentMatchIndex={setCurrentMatchIndex}
+            items={logList}
+            setMatchIndexList={setMatchIndexList}
+          />
+        </div>,
         historicalExecuteResponseUrl && (
           <Tooltip
             key="historical-url"

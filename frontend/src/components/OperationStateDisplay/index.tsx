@@ -13,10 +13,12 @@ import {
 } from "@/utils/time";
 import { generateBrowserSplat } from "@/utils/urlGenerator";
 import OperationStatusTag from "../OperationStatusTag";
-import { operationsStateToBrowserSplat } from "../OperationsGrid/utils";
 import OperationTokensDisplay from "../OperationTokensDisplay";
 import PropertyTagList from "../PropertyTagList";
-import { historicalExecuteResponseDigestFromOperation } from "./utils";
+import {
+  historicalExecuteResponseDigestFromOperation,
+  operationsStateToBrowserSplat,
+} from "./utils";
 
 interface Props {
   operation: OperationState;

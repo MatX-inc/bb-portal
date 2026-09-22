@@ -1,7 +1,12 @@
 import { Descriptions } from "antd";
 import type React from "react";
+import { getFragmentData } from "@/graphql/__generated__";
 import type { BazelInvocationOverviewFragment } from "@/graphql/__generated__/graphql";
+import { digestFunction_ValueFromJSON } from "@/lib/grpc-client/build/bazel/remote/execution/v2/remote_execution";
+import { FILE_DETAILS_FRAGMENT } from "@/types/GraphqlFileFragment";
 import { commandLineDataToString } from "@/utils/commandLineDataToString";
+import { useCheckDataExists } from "@/utils/fetchCasObject";
+import { CriticalPathDisplay } from "../CriticalPath";
 import { InvocationResultTag } from "../InvocationResultTag";
 import PortalDuration from "../PortalDuration";
 
@@ -17,6 +22,7 @@ export const InvocationOverviewDisplay: React.FC<Props> = ({ invocation }) => {
     exitCodeName,
     configurations,
     instanceName,
+    profile,
     connectionMetadata,
     originalCommandLine,
     numFetches,
@@ -46,8 +52,24 @@ export const InvocationOverviewDisplay: React.FC<Props> = ({ invocation }) => {
     .sort()
     .join(", ");
 
+  const parsedProfile = getFragmentData(FILE_DETAILS_FRAGMENT, profile);
+
+  const { exists } = useCheckDataExists(
+    parsedProfile?.digest.rev2InstanceName ?? "",
+    [
+      {
+        hash: parsedProfile?.digest.hash ?? "",
+        sizeBytes: (parsedProfile?.digest.sizeBytes ?? "").toString(),
+      },
+    ],
+    digestFunction_ValueFromJSON(
+      (parsedProfile?.digest.digestFunction ?? "").toUpperCase(),
+    ),
+    parsedProfile !== undefined,
+  );
+
   return (
-    <Descriptions column={1} bordered style={{ width: "max-content" }}>
+    <Descriptions column={1} bordered>
       <Descriptions.Item label="Status">
         <InvocationResultTag
           key="result"
@@ -78,6 +100,14 @@ export const InvocationOverviewDisplay: React.FC<Props> = ({ invocation }) => {
           formatConfig={{ smallestUnit: "s" }}
         />
       </Descriptions.Item>
+      {parsedProfile && exists && (
+        <Descriptions.Item label="Critical Path">
+          <CriticalPathDisplay
+            profile={parsedProfile}
+            hideTinyActions={false}
+          />
+        </Descriptions.Item>
+      )}
       {command !== "" && (
         <Descriptions.Item label="Command">
           <code>{command}</code>

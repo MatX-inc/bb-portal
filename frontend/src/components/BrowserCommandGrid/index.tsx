@@ -3,9 +3,14 @@ import { Space, Spin, Typography } from "antd";
 import type React from "react";
 import { casByteStreamClient } from "@/grpc/casByteStreamClient";
 import { Command } from "@/lib/grpc-client/build/bazel/remote/execution/v2/remote_execution";
-import type { BrowserPageParams } from "@/types/BrowserPageType";
-import { fetchCasObjectAndParse } from "@/utils/fetchCasObject";
-import BrowserCommandDescription from "../BrowserCommandDescription";
+import type { BrowserPageParams } from "@/types/BrowserPageParams";
+import {
+  fetchCasObjectAndParse,
+  useCheckDataExists,
+} from "@/utils/fetchCasObject";
+import { BrowserCommandDescription } from "../BrowserCommandDescription";
+import CopyBbClientdCommandButton from "../BrowserCommandDescription/CopyBbClientdCommandButton";
+import DownloadAsShellScriptButton from "../BrowserCommandDescription/DownloadAsShellScriptButton";
 import FilesTable from "../FilesTable";
 import { filesTableEntriesFromOutputPath } from "../FilesTable/utils";
 import PortalAlert from "../PortalAlert";
@@ -15,6 +20,12 @@ interface Params {
 }
 
 const BrowserCommandGrid: React.FC<Params> = ({ browserPageParams }) => {
+  const { exists, isLoading } = useCheckDataExists(
+    browserPageParams.instanceName,
+    [browserPageParams.digest],
+    browserPageParams.digestFunction,
+  );
+
   const { data, isError, isPending, error } = useQuery({
     queryKey: ["browserCommandGrid", browserPageParams],
     queryFn: () =>
@@ -25,7 +36,19 @@ const BrowserCommandGrid: React.FC<Params> = ({ browserPageParams }) => {
         browserPageParams.digest,
         Command,
       ),
+    enabled: exists === true,
   });
+
+  if (!exists && !isLoading) {
+    return (
+      <PortalAlert
+        showIcon
+        type="error"
+        title="Command not found"
+        description="The CAS contains no data for this command."
+      />
+    );
+  }
 
   if (isPending) {
     return <Spin />;
@@ -36,7 +59,7 @@ const BrowserCommandGrid: React.FC<Params> = ({ browserPageParams }) => {
       <PortalAlert
         showIcon
         type="error"
-        message="Error fetching command"
+        title="Error fetching command"
         description={
           error.message ||
           "Unknown error occurred while fetching data from the server."
@@ -46,7 +69,7 @@ const BrowserCommandGrid: React.FC<Params> = ({ browserPageParams }) => {
   }
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       <Typography.Title level={2}>Command</Typography.Title>
       <BrowserCommandDescription
         browserPageParams={browserPageParams}
@@ -54,6 +77,20 @@ const BrowserCommandGrid: React.FC<Params> = ({ browserPageParams }) => {
         commandDigest={browserPageParams.digest}
         showTitle={false}
       />
+      {browserPageParams.digest && (
+        <Space orientation="horizontal">
+          <CopyBbClientdCommandButton
+            digestFunction={browserPageParams.digestFunction}
+            instanceName={browserPageParams.instanceName}
+            commandDigest={browserPageParams.digest}
+          />
+          <DownloadAsShellScriptButton
+            digestFunction={browserPageParams.digestFunction}
+            instanceName={browserPageParams.instanceName}
+            commandDigest={browserPageParams.digest}
+          />
+        </Space>
+      )}
 
       <Typography.Title level={2}>Output files</Typography.Title>
       <FilesTable

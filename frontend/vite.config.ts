@@ -7,13 +7,16 @@ import { devtools } from "@tanstack/devtools-vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { goRouteManifestPlugin } from "./routeMapper";
 
 export default defineConfig({
   plugins: [
+    goRouteManifestPlugin(),
     devtools(),
     tanstackRouter({
       target: "react",
       autoCodeSplitting: true,
+      routesDirectory: path.resolve(__dirname, "./src/routes"),
     }),
     react(),
     babel({ presets: [reactCompilerPreset({ target: "19" })] }),
@@ -45,10 +48,21 @@ export default defineConfig({
       },
     },
   ],
+  build: {
+    manifest: true,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // Under Bazel, test/source files are exposed to the process via a
+    // runfiles symlink tree. Vite's dev-server-style module graph (used by
+    // vitest) follows symlinks to their real path by default, which resolves
+    // outside that tree and isn't visible to the sandbox running the test.
+    // Scoped to `vitest` (which sets process.env.VITEST) since enabling this
+    // for `vite build` breaks Rolldown's resolution of pnpm's nested,
+    // symlinked transitive dependencies.
+    preserveSymlinks: !!process.env.VITEST,
   },
   test: {
     environment: "jsdom",

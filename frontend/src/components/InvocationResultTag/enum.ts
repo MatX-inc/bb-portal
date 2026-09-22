@@ -9,6 +9,10 @@ export enum InvocationResult {
   NOT_BUILT = "NOT_BUILT",
   ABORTED = "ABORTED",
   INTERRUPTED = "INTERRUPTED",
+  ANALYSIS_FAILURE = "ANALYSIS_FAILURE",
+  COMMAND_LINE_ERROR = "COMMAND_LINE_ERROR",
+  REMOTE_CACHE_EVICTED = "REMOTE_CACHE_EVICTED",
+
   // Custom statuses
   UNKNOWN_EXIT_CODE = "UNKNOWN_EXIT_CODE",
   IN_PROGRESS = "IN_PROGRESS",
@@ -25,6 +29,9 @@ export const InvocationExitCodes = [
   InvocationResult.NOT_BUILT.toString(),
   InvocationResult.ABORTED.toString(),
   InvocationResult.INTERRUPTED.toString(),
+  InvocationResult.ANALYSIS_FAILURE.toString(),
+  InvocationResult.COMMAND_LINE_ERROR.toString(),
+  InvocationResult.REMOTE_CACHE_EVICTED.toString(),
 ];
 
 export const INVOCATION_IN_PROGRESS_TIMEOUT = 12 * 1000;
