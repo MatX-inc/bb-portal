@@ -74,6 +74,19 @@ export interface InvocationName {
   ids: Any[];
 }
 
+export interface TokenRequirement {
+  /**
+   * The name of the token pool, as declared through the "token:<name>"
+   * platform property.
+   */
+  name: string;
+  /**
+   * The number of tokens held while the operation is in the EXECUTING
+   * stage.
+   */
+  amount: number;
+}
+
 export interface OperationState {
   /**
    * The name of the operation. In the case of bb_scheduler, the
@@ -154,6 +167,18 @@ export interface OperationState {
   instanceNameSuffix: string;
   /** The digest function that was used to compute the action digest. */
   digestFunction: DigestFunction_Value;
+  /**
+   * The tokens that the operation's task holds while executing, as
+   * declared through "token:<name>" platform properties.
+   */
+  tokenRequirements: TokenRequirement[];
+  /**
+   * If set, the operation is in the QUEUED stage but is not eligible
+   * for assignment to a worker, because the named token pool cannot
+   * currently satisfy its requirement. The operation is waiting in
+   * that pool's FIFO.
+   */
+  blockedOnToken: string;
 }
 
 export interface SizeClassQueueState {
@@ -247,6 +272,14 @@ export interface InvocationState {
    * operations in the QUEUED execution stage exist.
    */
   queuedChildrenCount: number;
+  /**
+   * The number of operations associated with this platform queue and
+   * invocation, both directly and indirectly through descendant
+   * invocations, that are in the QUEUED execution stage but are
+   * waiting for tokens. These operations are not counted in
+   * 'queued_operations_count'.
+   */
+  blockedOperationsCount: number;
 }
 
 /** TODO: This message should be used for the other counts in InvocationState. */
@@ -258,6 +291,28 @@ export interface InvocationState_InvocationObjectCount {
    * invocation, not including the ones that are part of this invocation.
    */
   indirect: number;
+}
+
+export interface TokenPoolState {
+  /** The instance name prefix under which the pool is visible. */
+  instanceNamePrefix: string;
+  /** The name of the token. */
+  name: string;
+  /** The configured number of tokens in the pool. */
+  capacity: number;
+  /** The number of tokens held by tasks in the EXECUTING stage. */
+  inUse: number;
+  /**
+   * The number of tasks in the QUEUED stage that are waiting in this
+   * pool's FIFO for tokens to become available.
+   */
+  blockedTasksCount: number;
+  /**
+   * The number of tokens set aside for tasks that left the FIFO but
+   * are still waiting for a worker. Together with 'in_use' this is
+   * the number of tokens that cannot be handed out.
+   */
+  reservedCount: number;
 }
 
 export interface InvocationChildState {
@@ -389,6 +444,24 @@ export interface ListOperationsRequest {
    * provided value.
    */
   filterStage: ExecutionStage_Value;
+  /**
+   * If set, only return operations that require the token pool with
+   * the provided name under 'filter_token_instance_name_prefix'.
+   * Combined with 'filter_stage', this lists the holders (EXECUTING)
+   * or the waiters (QUEUED) of a token.
+   */
+  filterTokenName: string;
+  /**
+   * The instance name prefix of the token pool named by
+   * 'filter_token_name'. Pools are keyed by prefix and name.
+   */
+  filterTokenInstanceNamePrefix: string;
+  /**
+   * If set together with 'filter_token_name', only return operations
+   * that are parked on that token pool, excluding queued operations
+   * that merely require the token.
+   */
+  filterTokenBlockedOnly: boolean;
 }
 
 export interface ListOperationsRequest_StartAfter {
@@ -434,6 +507,11 @@ export interface KillOperationsRequest_Filter {
 export interface ListPlatformQueuesResponse {
   /** The state of all platform queued managed by the scheduler. */
   platformQueues: PlatformQueueState[];
+  /**
+   * The state of all token pools managed by the scheduler, sorted by
+   * instance name prefix and name.
+   */
+  tokenPools: TokenPoolState[];
 }
 
 export interface ListInvocationChildrenRequest {
@@ -1015,6 +1093,82 @@ export const InvocationName: MessageFns<InvocationName> = {
   },
 };
 
+function createBaseTokenRequirement(): TokenRequirement {
+  return { name: "", amount: 0 };
+}
+
+export const TokenRequirement: MessageFns<TokenRequirement> = {
+  encode(message: TokenRequirement, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.name !== "") {
+      writer.uint32(10).string(message.name);
+    }
+    if (message.amount !== 0) {
+      writer.uint32(16).uint32(message.amount);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TokenRequirement {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTokenRequirement();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.amount = reader.uint32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): TokenRequirement {
+    return {
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+      amount: isSet(object.amount) ? globalThis.Number(object.amount) : 0,
+    };
+  },
+
+  toJSON(message: TokenRequirement): unknown {
+    const obj: any = {};
+    if (message.name !== "") {
+      obj.name = message.name;
+    }
+    if (message.amount !== 0) {
+      obj.amount = Math.round(message.amount);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<TokenRequirement>): TokenRequirement {
+    return TokenRequirement.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<TokenRequirement>): TokenRequirement {
+    const message = createBaseTokenRequirement();
+    message.name = object.name ?? "";
+    message.amount = object.amount ?? 0;
+    return message;
+  },
+};
+
 function createBaseOperationState(): OperationState {
   return {
     name: "",
@@ -1030,6 +1184,8 @@ function createBaseOperationState(): OperationState {
     priority: 0,
     instanceNameSuffix: "",
     digestFunction: 0,
+    tokenRequirements: [],
+    blockedOnToken: "",
   };
 }
 
@@ -1073,6 +1229,12 @@ export const OperationState: MessageFns<OperationState> = {
     }
     if (message.digestFunction !== 0) {
       writer.uint32(120).int32(message.digestFunction);
+    }
+    for (const v of message.tokenRequirements) {
+      TokenRequirement.encode(v!, writer.uint32(802).fork()).join();
+    }
+    if (message.blockedOnToken !== "") {
+      writer.uint32(810).string(message.blockedOnToken);
     }
     return writer;
   },
@@ -1188,6 +1350,22 @@ export const OperationState: MessageFns<OperationState> = {
           message.digestFunction = reader.int32() as any;
           continue;
         }
+        case 100: {
+          if (tag !== 802) {
+            break;
+          }
+
+          message.tokenRequirements.push(TokenRequirement.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 101: {
+          if (tag !== 810) {
+            break;
+          }
+
+          message.blockedOnToken = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1240,6 +1418,16 @@ export const OperationState: MessageFns<OperationState> = {
         : isSet(object.digest_function)
         ? digestFunction_ValueFromJSON(object.digest_function)
         : 0,
+      tokenRequirements: globalThis.Array.isArray(object?.tokenRequirements)
+        ? object.tokenRequirements.map((e: any) => TokenRequirement.fromJSON(e))
+        : globalThis.Array.isArray(object?.token_requirements)
+        ? object.token_requirements.map((e: any) => TokenRequirement.fromJSON(e))
+        : [],
+      blockedOnToken: isSet(object.blockedOnToken)
+        ? globalThis.String(object.blockedOnToken)
+        : isSet(object.blocked_on_token)
+        ? globalThis.String(object.blocked_on_token)
+        : "",
     };
   },
 
@@ -1284,6 +1472,12 @@ export const OperationState: MessageFns<OperationState> = {
     if (message.digestFunction !== 0) {
       obj.digestFunction = digestFunction_ValueToJSON(message.digestFunction);
     }
+    if (message.tokenRequirements?.length) {
+      obj.tokenRequirements = message.tokenRequirements.map((e) => TokenRequirement.toJSON(e));
+    }
+    if (message.blockedOnToken !== "") {
+      obj.blockedOnToken = message.blockedOnToken;
+    }
     return obj;
   },
 
@@ -1317,6 +1511,8 @@ export const OperationState: MessageFns<OperationState> = {
     message.priority = object.priority ?? 0;
     message.instanceNameSuffix = object.instanceNameSuffix ?? "";
     message.digestFunction = object.digestFunction ?? 0;
+    message.tokenRequirements = object.tokenRequirements?.map((e) => TokenRequirement.fromPartial(e)) || [];
+    message.blockedOnToken = object.blockedOnToken ?? "";
     return message;
   },
 };
@@ -1554,6 +1750,7 @@ function createBaseInvocationState(): InvocationState {
     childrenCount: 0,
     activeChildrenCount: 0,
     queuedChildrenCount: 0,
+    blockedOperationsCount: 0,
   };
 }
 
@@ -1579,6 +1776,9 @@ export const InvocationState: MessageFns<InvocationState> = {
     }
     if (message.queuedChildrenCount !== 0) {
       writer.uint32(72).uint32(message.queuedChildrenCount);
+    }
+    if (message.blockedOperationsCount !== 0) {
+      writer.uint32(800).uint32(message.blockedOperationsCount);
     }
     return writer;
   },
@@ -1646,6 +1846,14 @@ export const InvocationState: MessageFns<InvocationState> = {
           message.queuedChildrenCount = reader.uint32();
           continue;
         }
+        case 100: {
+          if (tag !== 800) {
+            break;
+          }
+
+          message.blockedOperationsCount = reader.uint32();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1692,6 +1900,11 @@ export const InvocationState: MessageFns<InvocationState> = {
         : isSet(object.queued_children_count)
         ? globalThis.Number(object.queued_children_count)
         : 0,
+      blockedOperationsCount: isSet(object.blockedOperationsCount)
+        ? globalThis.Number(object.blockedOperationsCount)
+        : isSet(object.blocked_operations_count)
+        ? globalThis.Number(object.blocked_operations_count)
+        : 0,
     };
   },
 
@@ -1718,6 +1931,9 @@ export const InvocationState: MessageFns<InvocationState> = {
     if (message.queuedChildrenCount !== 0) {
       obj.queuedChildrenCount = Math.round(message.queuedChildrenCount);
     }
+    if (message.blockedOperationsCount !== 0) {
+      obj.blockedOperationsCount = Math.round(message.blockedOperationsCount);
+    }
     return obj;
   },
 
@@ -1736,6 +1952,7 @@ export const InvocationState: MessageFns<InvocationState> = {
     message.childrenCount = object.childrenCount ?? 0;
     message.activeChildrenCount = object.activeChildrenCount ?? 0;
     message.queuedChildrenCount = object.queuedChildrenCount ?? 0;
+    message.blockedOperationsCount = object.blockedOperationsCount ?? 0;
     return message;
   },
 };
@@ -1812,6 +2029,162 @@ export const InvocationState_InvocationObjectCount: MessageFns<InvocationState_I
     const message = createBaseInvocationState_InvocationObjectCount();
     message.direct = object.direct ?? 0;
     message.indirect = object.indirect ?? 0;
+    return message;
+  },
+};
+
+function createBaseTokenPoolState(): TokenPoolState {
+  return { instanceNamePrefix: "", name: "", capacity: 0, inUse: 0, blockedTasksCount: 0, reservedCount: 0 };
+}
+
+export const TokenPoolState: MessageFns<TokenPoolState> = {
+  encode(message: TokenPoolState, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.instanceNamePrefix !== "") {
+      writer.uint32(10).string(message.instanceNamePrefix);
+    }
+    if (message.name !== "") {
+      writer.uint32(18).string(message.name);
+    }
+    if (message.capacity !== 0) {
+      writer.uint32(24).uint32(message.capacity);
+    }
+    if (message.inUse !== 0) {
+      writer.uint32(32).uint32(message.inUse);
+    }
+    if (message.blockedTasksCount !== 0) {
+      writer.uint32(40).uint32(message.blockedTasksCount);
+    }
+    if (message.reservedCount !== 0) {
+      writer.uint32(48).uint32(message.reservedCount);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TokenPoolState {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTokenPoolState();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.instanceNamePrefix = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.capacity = reader.uint32();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.inUse = reader.uint32();
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.blockedTasksCount = reader.uint32();
+          continue;
+        }
+        case 6: {
+          if (tag !== 48) {
+            break;
+          }
+
+          message.reservedCount = reader.uint32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): TokenPoolState {
+    return {
+      instanceNamePrefix: isSet(object.instanceNamePrefix)
+        ? globalThis.String(object.instanceNamePrefix)
+        : isSet(object.instance_name_prefix)
+        ? globalThis.String(object.instance_name_prefix)
+        : "",
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+      capacity: isSet(object.capacity) ? globalThis.Number(object.capacity) : 0,
+      inUse: isSet(object.inUse)
+        ? globalThis.Number(object.inUse)
+        : isSet(object.in_use)
+        ? globalThis.Number(object.in_use)
+        : 0,
+      blockedTasksCount: isSet(object.blockedTasksCount)
+        ? globalThis.Number(object.blockedTasksCount)
+        : isSet(object.blocked_tasks_count)
+        ? globalThis.Number(object.blocked_tasks_count)
+        : 0,
+      reservedCount: isSet(object.reservedCount)
+        ? globalThis.Number(object.reservedCount)
+        : isSet(object.reserved_count)
+        ? globalThis.Number(object.reserved_count)
+        : 0,
+    };
+  },
+
+  toJSON(message: TokenPoolState): unknown {
+    const obj: any = {};
+    if (message.instanceNamePrefix !== "") {
+      obj.instanceNamePrefix = message.instanceNamePrefix;
+    }
+    if (message.name !== "") {
+      obj.name = message.name;
+    }
+    if (message.capacity !== 0) {
+      obj.capacity = Math.round(message.capacity);
+    }
+    if (message.inUse !== 0) {
+      obj.inUse = Math.round(message.inUse);
+    }
+    if (message.blockedTasksCount !== 0) {
+      obj.blockedTasksCount = Math.round(message.blockedTasksCount);
+    }
+    if (message.reservedCount !== 0) {
+      obj.reservedCount = Math.round(message.reservedCount);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<TokenPoolState>): TokenPoolState {
+    return TokenPoolState.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<TokenPoolState>): TokenPoolState {
+    const message = createBaseTokenPoolState();
+    message.instanceNamePrefix = object.instanceNamePrefix ?? "";
+    message.name = object.name ?? "";
+    message.capacity = object.capacity ?? 0;
+    message.inUse = object.inUse ?? 0;
+    message.blockedTasksCount = object.blockedTasksCount ?? 0;
+    message.reservedCount = object.reservedCount ?? 0;
     return message;
   },
 };
@@ -2423,7 +2796,15 @@ export const GetOperationResponse: MessageFns<GetOperationResponse> = {
 };
 
 function createBaseListOperationsRequest(): ListOperationsRequest {
-  return { pageSize: 0, startAfter: undefined, filterInvocationId: undefined, filterStage: 0 };
+  return {
+    pageSize: 0,
+    startAfter: undefined,
+    filterInvocationId: undefined,
+    filterStage: 0,
+    filterTokenName: "",
+    filterTokenInstanceNamePrefix: "",
+    filterTokenBlockedOnly: false,
+  };
 }
 
 export const ListOperationsRequest: MessageFns<ListOperationsRequest> = {
@@ -2439,6 +2820,15 @@ export const ListOperationsRequest: MessageFns<ListOperationsRequest> = {
     }
     if (message.filterStage !== 0) {
       writer.uint32(32).int32(message.filterStage);
+    }
+    if (message.filterTokenName !== "") {
+      writer.uint32(802).string(message.filterTokenName);
+    }
+    if (message.filterTokenInstanceNamePrefix !== "") {
+      writer.uint32(810).string(message.filterTokenInstanceNamePrefix);
+    }
+    if (message.filterTokenBlockedOnly !== false) {
+      writer.uint32(816).bool(message.filterTokenBlockedOnly);
     }
     return writer;
   },
@@ -2482,6 +2872,30 @@ export const ListOperationsRequest: MessageFns<ListOperationsRequest> = {
           message.filterStage = reader.int32() as any;
           continue;
         }
+        case 100: {
+          if (tag !== 802) {
+            break;
+          }
+
+          message.filterTokenName = reader.string();
+          continue;
+        }
+        case 101: {
+          if (tag !== 810) {
+            break;
+          }
+
+          message.filterTokenInstanceNamePrefix = reader.string();
+          continue;
+        }
+        case 102: {
+          if (tag !== 816) {
+            break;
+          }
+
+          message.filterTokenBlockedOnly = reader.bool();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -2513,6 +2927,21 @@ export const ListOperationsRequest: MessageFns<ListOperationsRequest> = {
         : isSet(object.filter_stage)
         ? executionStage_ValueFromJSON(object.filter_stage)
         : 0,
+      filterTokenName: isSet(object.filterTokenName)
+        ? globalThis.String(object.filterTokenName)
+        : isSet(object.filter_token_name)
+        ? globalThis.String(object.filter_token_name)
+        : "",
+      filterTokenInstanceNamePrefix: isSet(object.filterTokenInstanceNamePrefix)
+        ? globalThis.String(object.filterTokenInstanceNamePrefix)
+        : isSet(object.filter_token_instance_name_prefix)
+        ? globalThis.String(object.filter_token_instance_name_prefix)
+        : "",
+      filterTokenBlockedOnly: isSet(object.filterTokenBlockedOnly)
+        ? globalThis.Boolean(object.filterTokenBlockedOnly)
+        : isSet(object.filter_token_blocked_only)
+        ? globalThis.Boolean(object.filter_token_blocked_only)
+        : false,
     };
   },
 
@@ -2530,6 +2959,15 @@ export const ListOperationsRequest: MessageFns<ListOperationsRequest> = {
     if (message.filterStage !== 0) {
       obj.filterStage = executionStage_ValueToJSON(message.filterStage);
     }
+    if (message.filterTokenName !== "") {
+      obj.filterTokenName = message.filterTokenName;
+    }
+    if (message.filterTokenInstanceNamePrefix !== "") {
+      obj.filterTokenInstanceNamePrefix = message.filterTokenInstanceNamePrefix;
+    }
+    if (message.filterTokenBlockedOnly !== false) {
+      obj.filterTokenBlockedOnly = message.filterTokenBlockedOnly;
+    }
     return obj;
   },
 
@@ -2546,6 +2984,9 @@ export const ListOperationsRequest: MessageFns<ListOperationsRequest> = {
       ? Any.fromPartial(object.filterInvocationId)
       : undefined;
     message.filterStage = object.filterStage ?? 0;
+    message.filterTokenName = object.filterTokenName ?? "";
+    message.filterTokenInstanceNamePrefix = object.filterTokenInstanceNamePrefix ?? "";
+    message.filterTokenBlockedOnly = object.filterTokenBlockedOnly ?? false;
     return message;
   },
 };
@@ -2866,13 +3307,16 @@ export const KillOperationsRequest_Filter: MessageFns<KillOperationsRequest_Filt
 };
 
 function createBaseListPlatformQueuesResponse(): ListPlatformQueuesResponse {
-  return { platformQueues: [] };
+  return { platformQueues: [], tokenPools: [] };
 }
 
 export const ListPlatformQueuesResponse: MessageFns<ListPlatformQueuesResponse> = {
   encode(message: ListPlatformQueuesResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.platformQueues) {
       PlatformQueueState.encode(v!, writer.uint32(10).fork()).join();
+    }
+    for (const v of message.tokenPools) {
+      TokenPoolState.encode(v!, writer.uint32(802).fork()).join();
     }
     return writer;
   },
@@ -2892,6 +3336,14 @@ export const ListPlatformQueuesResponse: MessageFns<ListPlatformQueuesResponse> 
           message.platformQueues.push(PlatformQueueState.decode(reader, reader.uint32()));
           continue;
         }
+        case 100: {
+          if (tag !== 802) {
+            break;
+          }
+
+          message.tokenPools.push(TokenPoolState.decode(reader, reader.uint32()));
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -2908,6 +3360,11 @@ export const ListPlatformQueuesResponse: MessageFns<ListPlatformQueuesResponse> 
         : globalThis.Array.isArray(object?.platform_queues)
         ? object.platform_queues.map((e: any) => PlatformQueueState.fromJSON(e))
         : [],
+      tokenPools: globalThis.Array.isArray(object?.tokenPools)
+        ? object.tokenPools.map((e: any) => TokenPoolState.fromJSON(e))
+        : globalThis.Array.isArray(object?.token_pools)
+        ? object.token_pools.map((e: any) => TokenPoolState.fromJSON(e))
+        : [],
     };
   },
 
@@ -2915,6 +3372,9 @@ export const ListPlatformQueuesResponse: MessageFns<ListPlatformQueuesResponse> 
     const obj: any = {};
     if (message.platformQueues?.length) {
       obj.platformQueues = message.platformQueues.map((e) => PlatformQueueState.toJSON(e));
+    }
+    if (message.tokenPools?.length) {
+      obj.tokenPools = message.tokenPools.map((e) => TokenPoolState.toJSON(e));
     }
     return obj;
   },
@@ -2925,6 +3385,7 @@ export const ListPlatformQueuesResponse: MessageFns<ListPlatformQueuesResponse> 
   fromPartial(object: DeepPartial<ListPlatformQueuesResponse>): ListPlatformQueuesResponse {
     const message = createBaseListPlatformQueuesResponse();
     message.platformQueues = object.platformQueues?.map((e) => PlatformQueueState.fromPartial(e)) || [];
+    message.tokenPools = object.tokenPools?.map((e) => TokenPoolState.fromPartial(e)) || [];
     return message;
   },
 };

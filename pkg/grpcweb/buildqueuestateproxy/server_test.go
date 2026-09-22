@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/buildbarn/bb-portal/internal/mock"
 	"github.com/stretchr/testify/require"
 
@@ -16,8 +17,10 @@ import (
 	"github.com/buildbarn/bb-storage/pkg/digest"
 	"github.com/buildbarn/bb-storage/pkg/jmespath"
 	auth_pb "github.com/buildbarn/bb-storage/pkg/proto/auth"
+	"github.com/buildbarn/bb-storage/pkg/testutil"
 	"github.com/buildbarn/bb-storage/pkg/util"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -661,7 +664,33 @@ func TestListOperations(t *testing.T) {
 			PageSize: 5,
 		})
 		require.NoError(t, err)
-		require.Equal(t, clientResponse, resp)
+		testutil.RequireEqualProto(t, clientResponse, resp)
+	})
+
+	t.Run("TokenFiltersForwarded", func(t *testing.T) {
+		var forwarded *buildqueuestate.ListOperationsRequest
+		bqsClient.EXPECT().ListOperations(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, req *buildqueuestate.ListOperationsRequest, _ ...grpc.CallOption) (*buildqueuestate.ListOperationsResponse, error) {
+				forwarded = req
+				return &buildqueuestate.ListOperationsResponse{
+					Operations:     []*buildqueuestate.OperationState{},
+					PaginationInfo: &buildqueuestate.PaginationInfo{},
+				}, nil
+			},
+		)
+
+		_, err := bqsServer.ListOperations(ctx, &buildqueuestate.ListOperationsRequest{
+			PageSize:                      5,
+			FilterStage:                   remoteexecution.ExecutionStage_EXECUTING,
+			FilterTokenName:               "synthetic",
+			FilterTokenInstanceNamePrefix: "allowed",
+			FilterTokenBlockedOnly:        true,
+		})
+		require.NoError(t, err)
+		require.Equal(t, remoteexecution.ExecutionStage_EXECUTING, forwarded.FilterStage)
+		require.Equal(t, "synthetic", forwarded.FilterTokenName)
+		require.Equal(t, "allowed", forwarded.FilterTokenInstanceNamePrefix)
+		require.True(t, forwarded.FilterTokenBlockedOnly)
 	})
 
 	t.Run("FilterOperations", func(t *testing.T) {
