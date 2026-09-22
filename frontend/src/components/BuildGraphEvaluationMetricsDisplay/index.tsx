@@ -1,7 +1,7 @@
 import { ApartmentOutlined } from "@ant-design/icons";
 import { Space, Table, type TableColumnsType, Typography } from "antd";
 import type { BazelInvocationMetricsBuildGraphEvaluationMetricsFragment } from "@/graphql/__generated__/graphql";
-import PortalCard from "../PortalCard";
+import { PortalCard } from "../PortalCard";
 
 interface Props {
   buildGraphMetrics: BazelInvocationMetricsBuildGraphEvaluationMetricsFragment;
@@ -143,7 +143,7 @@ export const BuildGraphEvaluationMetricsDisplay: React.FC<Props> = ({
       icon={<ApartmentOutlined />}
       titleBits={["Build Graph Metrics"]}
     >
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
         {evaluationRows.length > 0 && (
           <div>
             <Typography.Title level={5}>Skyframe Evaluation</Typography.Title>

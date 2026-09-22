@@ -41,7 +41,7 @@ const inUseColumn: ColumnType<TokenPoolState> = {
             instanceNamePrefix: record.instanceNamePrefix,
             name: record.name,
           },
-          status: OperationStatus.EXECUTING,
+          statusFilter: OperationStatus.EXECUTING,
         }}
       >
         {record.inUse} ({percentage}%)
@@ -71,7 +71,7 @@ const blockedColumn: ColumnType<TokenPoolState> = {
           name: record.name,
           blockedOnly: true,
         },
-        status: OperationStatus.QUEUED,
+        statusFilter: OperationStatus.QUEUED,
       }}
     >
       {record.blockedTasksCount}

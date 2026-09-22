@@ -61,12 +61,13 @@ type DataExtractors struct {
 }
 
 type buildEventRecorder struct {
-	db             database.Client
-	handledEvents  handledEvents
-	saveDataLevel  *bb_portal.BuildEventStreamService_SaveDataLevel
-	tracer         trace.Tracer
-	dataExtractors *DataExtractors
-	buildKey       string
+	db                database.Client
+	handledEvents     handledEvents
+	saveDataLevel     *bb_portal.BuildEventStreamService_SaveDataLevel
+	tracer            trace.Tracer
+	dataExtractors    *DataExtractors
+	buildKey          string
+	batchRetryTimeout time.Duration
 
 	InstanceName     string
 	InstanceNameDbID int64
@@ -84,13 +85,14 @@ type handledEvents struct {
 func NewBuildEventRecorder(
 	ctx context.Context,
 	db database.Client,
-	instanceNameAuthorizer auth.Authorizer,
+	publishAuthorizer auth.Authorizer,
 	saveDataLevel *bb_portal.BuildEventStreamService_SaveDataLevel,
 	tracerProvider trace.TracerProvider,
 	instanceName string,
 	invocationID string,
 	dataExtractors *DataExtractors,
 	buildKey string,
+	batchRetryTimeout time.Duration,
 ) (BuildEventRecorder, error) {
 	tracer := tracerProvider.Tracer("github.com/buildbarn/bb-portal/internal/database/buildeventrecorder")
 	ctx, span := tracer.Start(
@@ -110,7 +112,7 @@ func NewBuildEventRecorder(
 	if err != nil {
 		return nil, util.StatusWrap(err, "Failed to parse invocation ID, it is not a valid UUID")
 	}
-	if !apicommon.IsInstanceNameAllowed(ctx, instanceNameAuthorizer, instanceName) {
+	if !apicommon.IsInstanceNameAllowed(ctx, publishAuthorizer, instanceName) {
 		return nil, status.Error(codes.PermissionDenied, fmt.Sprintf("Instance name %q is not allowed", instanceName))
 	}
 

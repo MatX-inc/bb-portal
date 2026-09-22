@@ -15,11 +15,11 @@ import {
 } from "recharts";
 import { PageCursorTable } from "@/components/PageCursorTable";
 import type { GetPaginationUpdateLinkType } from "@/components/PageCursorTable/types";
+import { PortalCard } from "@/components/PortalCard";
 import type {
   PageInfo,
   TestSummaryTargetDetailsFragment,
 } from "@/graphql/__generated__/graphql";
-import PortalCard from "../../PortalCard";
 import { columns, type TestDetailsRowType } from "./columns";
 
 interface Props {
@@ -42,7 +42,7 @@ export const TestDetailsPage: React.FC<Props> = ({
       icon={<ExperimentFilled />}
       titleBits={[<span key="title">Test Details</span>]}
     >
-      <Space direction="vertical" size="middle" style={{ display: "flex" }}>
+      <Space orientation="vertical" size="middle" style={{ display: "flex" }}>
         <Descriptions column={1}>
           <Descriptions.Item label="Instance Name">
             {target.instanceName.name || "-"}

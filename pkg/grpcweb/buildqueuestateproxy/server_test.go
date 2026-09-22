@@ -10,7 +10,6 @@ import (
 
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"github.com/buildbarn/bb-portal/internal/mock"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
 	"github.com/buildbarn/bb-remote-execution/pkg/proto/buildqueuestate"
@@ -49,9 +48,7 @@ func TestFilterPlatformQueues(t *testing.T) {
 			PlatformQueues: []*buildqueuestate.PlatformQueueState{},
 		}
 		allowedQueues := filterPlatormQueues(ctx, &platformQueues, a)
-		if len(allowedQueues) != 0 {
-			t.Errorf("Expected no platform queues, got %d", len(allowedQueues))
-		}
+		require.Len(t, allowedQueues, 0)
 	})
 
 	t.Run("FilterQueues", func(t *testing.T) {
@@ -70,13 +67,8 @@ func TestFilterPlatformQueues(t *testing.T) {
 			},
 		}
 		allowedQueues := filterPlatormQueues(ctx, &platformQueues, a)
-		if len(allowedQueues) != 1 {
-			t.Errorf("Expected one platform queue, got %d", len(allowedQueues))
-		}
-		expected := platformQueues.PlatformQueues[0]
-		if allowedQueues[0] != expected {
-			t.Errorf("Expected platform queue %+v, got %+v", expected, allowedQueues[0])
-		}
+		require.Len(t, allowedQueues, 1)
+		require.Equal(t, platformQueues.PlatformQueues[0], allowedQueues[0])
 	})
 
 	t.Run("AllowEmptyInstanceNames", func(t *testing.T) {
@@ -95,13 +87,8 @@ func TestFilterPlatformQueues(t *testing.T) {
 			},
 		}
 		allowedQueues := filterPlatormQueues(ctx, &platformQueues, a)
-		if len(allowedQueues) != 1 {
-			t.Errorf("Expected one platform queue, got %d", len(allowedQueues))
-		}
-		expected := platformQueues.PlatformQueues[0]
-		if allowedQueues[0] != expected {
-			t.Errorf("Expected platform queue %+v, got %+v", expected, allowedQueues[0])
-		}
+		require.Len(t, allowedQueues, 1)
+		require.Equal(t, platformQueues.PlatformQueues[0], allowedQueues[0])
 	})
 
 	t.Run("InvalidPlatformQueue", func(t *testing.T) {
@@ -116,9 +103,7 @@ func TestFilterPlatformQueues(t *testing.T) {
 			},
 		}
 		allowedQueues := filterPlatormQueues(ctx, &platformQueues, a)
-		if len(allowedQueues) != 0 {
-			t.Errorf("Expected no platform queues, got %d", len(allowedQueues))
-		}
+		require.Len(t, allowedQueues, 0)
 	})
 }
 
@@ -133,6 +118,7 @@ func TestFilterOperations(t *testing.T) {
 				"permittedInstanceNames": structpb.NewListValue(&structpb.ListValue{
 					Values: []*structpb.Value{
 						structpb.NewStringValue("allowed"),
+						structpb.NewStringValue("allowed/foo"),
 					},
 				}),
 			},
@@ -142,9 +128,7 @@ func TestFilterOperations(t *testing.T) {
 	t.Run("NoOperations", func(t *testing.T) {
 		operations := []*buildqueuestate.OperationState{}
 		allowedOperations := filterOperations(ctx, operations, a)
-		if len(allowedOperations) != 0 {
-			t.Errorf("Expected no operations, got %d", len(allowedOperations))
-		}
+		require.Len(t, allowedOperations, 0)
 	})
 
 	t.Run("FilterOperations", func(t *testing.T) {
@@ -162,20 +146,46 @@ func TestFilterOperations(t *testing.T) {
 				InvocationName: &buildqueuestate.InvocationName{
 					SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
 						PlatformQueueName: &buildqueuestate.PlatformQueueName{
+							InstanceNamePrefix: "allowed",
+						},
+					},
+				},
+				InstanceNameSuffix: "foo",
+			},
+			{
+				InvocationName: &buildqueuestate.InvocationName{
+					SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+						PlatformQueueName: &buildqueuestate.PlatformQueueName{
+							InstanceNamePrefix: "allowed",
+						},
+					},
+				},
+				InstanceNameSuffix: "bar",
+			},
+			{
+				InvocationName: &buildqueuestate.InvocationName{
+					SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+						PlatformQueueName: &buildqueuestate.PlatformQueueName{
 							InstanceNamePrefix: "forbidden",
 						},
 					},
 				},
 			},
+			{
+				InvocationName: &buildqueuestate.InvocationName{
+					SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+						PlatformQueueName: &buildqueuestate.PlatformQueueName{
+							InstanceNamePrefix: "forbidden",
+						},
+					},
+				},
+				InstanceNameSuffix: "foo",
+			},
 		}
 		allowedOperations := filterOperations(ctx, operations, a)
-		if len(allowedOperations) != 1 {
-			t.Errorf("Expected one operation, got %d", len(allowedOperations))
-		}
-		expected := operations[0]
-		if allowedOperations[0] != expected {
-			t.Errorf("Expected operation %+v, got %+v", expected, allowedOperations[0])
-		}
+		require.Len(t, allowedOperations, 2)
+		require.Equal(t, operations[0], allowedOperations[0])
+		require.Equal(t, operations[1], allowedOperations[1])
 	})
 
 	t.Run("AllowEmptyInstanceNames", func(t *testing.T) {
@@ -200,13 +210,8 @@ func TestFilterOperations(t *testing.T) {
 			},
 		}
 		allowedOperations := filterOperations(ctx, operations, a)
-		if len(allowedOperations) != 1 {
-			t.Errorf("Expected one operation, got %d", len(allowedOperations))
-		}
-		expected := operations[0]
-		if allowedOperations[0] != expected {
-			t.Errorf("Expected operation %+v, got %+v", expected, allowedOperations[0])
-		}
+		require.Len(t, allowedOperations, 1)
+		require.Equal(t, operations[0], allowedOperations[0])
 	})
 
 	t.Run("InvalidOperation", func(t *testing.T) {
@@ -223,9 +228,7 @@ func TestFilterOperations(t *testing.T) {
 			},
 		}
 		allowedOperations := filterOperations(ctx, operations, a)
-		if len(allowedOperations) != 0 {
-			t.Errorf("Expected no operations, got %d", len(allowedOperations))
-		}
+		require.Len(t, allowedOperations, 0)
 	})
 }
 
@@ -233,12 +236,7 @@ func TestGetInstanceNamePrefixFromListWorkersRequest(t *testing.T) {
 	t.Run("NoFilter", func(t *testing.T) {
 		req := &buildqueuestate.ListWorkersRequest{}
 		_, err := getInstanceNamePrefixFromListWorkersRequest(req)
-		if err == nil {
-			t.Errorf("Expected error, got nil")
-		}
-		if status.Code(err) != codes.InvalidArgument {
-			t.Errorf("Expected InvalidArgument error, got %v", err)
-		}
+		require.ErrorContains(t, err, "Request does not contain a valid InstanceNamePrefix")
 	})
 
 	t.Run("AllFilter", func(t *testing.T) {
@@ -254,12 +252,8 @@ func TestGetInstanceNamePrefixFromListWorkersRequest(t *testing.T) {
 			},
 		}
 		instanceNamePrefix, err := getInstanceNamePrefixFromListWorkersRequest(req)
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if instanceNamePrefix != "all" {
-			t.Errorf("Expected instance name prefix 'all', got %s", instanceNamePrefix)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "all", instanceNamePrefix)
 	})
 
 	t.Run("ExecutingFilter", func(t *testing.T) {
@@ -277,12 +271,8 @@ func TestGetInstanceNamePrefixFromListWorkersRequest(t *testing.T) {
 			},
 		}
 		instanceNamePrefix, err := getInstanceNamePrefixFromListWorkersRequest(req)
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if instanceNamePrefix != "executing" {
-			t.Errorf("Expected instance name prefix 'executing', got %s", instanceNamePrefix)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "executing", instanceNamePrefix)
 	})
 
 	t.Run("IdleSynchronizingFilter", func(t *testing.T) {
@@ -300,12 +290,8 @@ func TestGetInstanceNamePrefixFromListWorkersRequest(t *testing.T) {
 			},
 		}
 		instanceNamePrefix, err := getInstanceNamePrefixFromListWorkersRequest(req)
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-		if instanceNamePrefix != "idle" {
-			t.Errorf("Expected instance name prefix 'idle', got %s", instanceNamePrefix)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "idle", instanceNamePrefix)
 	})
 
 	t.Run("InvalidFilter", func(t *testing.T) {
@@ -313,92 +299,203 @@ func TestGetInstanceNamePrefixFromListWorkersRequest(t *testing.T) {
 			Filter: &buildqueuestate.ListWorkersRequest_Filter{},
 		}
 		_, err := getInstanceNamePrefixFromListWorkersRequest(req)
-		if err == nil {
-			t.Errorf("Expected error, got nil")
+		require.ErrorContains(t, err, "Request does not contain a valid InstanceNamePrefix")
+	})
+}
+
+func TestIsOperationAllowed(t *testing.T) {
+	a := auth.NewJMESPathExpressionAuthorizer(
+		jmespath.MustCompile("contains(authenticationMetadata.private.permittedInstanceNames, instanceName) || instanceName == ''"),
+	)
+
+	ctx := auth.NewContextWithAuthenticationMetadata(context.Background(), util.Must(auth.NewAuthenticationMetadataFromProto(&auth_pb.AuthenticationMetadata{
+		Private: structpb.NewStructValue(&structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"permittedInstanceNames": structpb.NewListValue(&structpb.ListValue{
+					Values: []*structpb.Value{
+						structpb.NewStringValue("allowed"),
+						structpb.NewStringValue("allowed/foo"),
+					},
+				}),
+			},
+		}),
+	})))
+
+	t.Run("NoOperations", func(t *testing.T) {
+		allowed := isOperationAllowed(ctx, a, nil)
+		require.False(t, allowed)
+	})
+
+	t.Run("AllowedPrefix", func(t *testing.T) {
+		operation := &buildqueuestate.OperationState{
+			InvocationName: &buildqueuestate.InvocationName{
+				SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+					PlatformQueueName: &buildqueuestate.PlatformQueueName{
+						InstanceNamePrefix: "allowed",
+					},
+				},
+			},
 		}
-		if status.Code(err) != codes.InvalidArgument {
-			t.Errorf("Expected InvalidArgument error, got %v", err)
+		allowed := isOperationAllowed(ctx, a, operation)
+		require.True(t, allowed)
+	})
+
+	t.Run("AllowedSuffix", func(t *testing.T) {
+		operation := &buildqueuestate.OperationState{
+			InstanceNameSuffix: "allowed",
 		}
+		allowed := isOperationAllowed(ctx, a, operation)
+		require.True(t, allowed)
+	})
+
+	t.Run("AllowedFull", func(t *testing.T) {
+		operation := &buildqueuestate.OperationState{
+			InvocationName: &buildqueuestate.InvocationName{
+				SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+					PlatformQueueName: &buildqueuestate.PlatformQueueName{
+						InstanceNamePrefix: "allowed",
+					},
+				},
+			},
+			InstanceNameSuffix: "foo",
+		}
+		allowed := isOperationAllowed(ctx, a, operation)
+		require.True(t, allowed)
+	})
+
+	t.Run("DisallowedPrefix", func(t *testing.T) {
+		operation := &buildqueuestate.OperationState{
+			InvocationName: &buildqueuestate.InvocationName{
+				SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+					PlatformQueueName: &buildqueuestate.PlatformQueueName{
+						InstanceNamePrefix: "disallowed",
+					},
+				},
+			},
+		}
+		allowed := isOperationAllowed(ctx, a, operation)
+		require.False(t, allowed)
+	})
+
+	t.Run("DisallowedSuffix", func(t *testing.T) {
+		operation := &buildqueuestate.OperationState{
+			InstanceNameSuffix: "disallowed",
+		}
+		allowed := isOperationAllowed(ctx, a, operation)
+		require.False(t, allowed)
+	})
+
+	t.Run("DisallowedFull", func(t *testing.T) {
+		operation := &buildqueuestate.OperationState{
+			InvocationName: &buildqueuestate.InvocationName{
+				SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+					PlatformQueueName: &buildqueuestate.PlatformQueueName{
+						InstanceNamePrefix: "allowed",
+					},
+				},
+			},
+			InstanceNameSuffix: "bar",
+		}
+		allowed := isOperationAllowed(ctx, a, operation)
+		require.False(t, allowed)
+	})
+}
+
+func TestIsPrefixSuffixAllowed(t *testing.T) {
+	a := auth.NewJMESPathExpressionAuthorizer(
+		jmespath.MustCompile("contains(authenticationMetadata.private.permittedInstanceNames, instanceName) || instanceName == ''"),
+	)
+
+	ctx := auth.NewContextWithAuthenticationMetadata(context.Background(), util.Must(auth.NewAuthenticationMetadataFromProto(&auth_pb.AuthenticationMetadata{
+		Private: structpb.NewStructValue(&structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"permittedInstanceNames": structpb.NewListValue(&structpb.ListValue{
+					Values: []*structpb.Value{
+						structpb.NewStringValue("allowed"),
+						structpb.NewStringValue("allowed/foo"),
+					},
+				}),
+			},
+		}),
+	})))
+
+	t.Run("NoNames", func(t *testing.T) {
+		allowed := isPrefixSuffixAllowed(ctx, a, "", "")
+		require.True(t, allowed)
+	})
+
+	t.Run("AllowedPrefix", func(t *testing.T) {
+		allowed := isPrefixSuffixAllowed(ctx, a, "allowed", "")
+		require.True(t, allowed)
+	})
+
+	t.Run("AllowedSuffix", func(t *testing.T) {
+		allowed := isPrefixSuffixAllowed(ctx, a, "", "allowed")
+		require.True(t, allowed)
+	})
+
+	t.Run("AllowedFull", func(t *testing.T) {
+		allowed := isPrefixSuffixAllowed(ctx, a, "allowed", "foo")
+		require.True(t, allowed)
+	})
+
+	t.Run("DisallowedPrefix", func(t *testing.T) {
+		allowed := isPrefixSuffixAllowed(ctx, a, "disallowed", "")
+		require.False(t, allowed)
+	})
+
+	t.Run("DisallowedSuffix", func(t *testing.T) {
+		allowed := isPrefixSuffixAllowed(ctx, a, "", "disallowed")
+		require.False(t, allowed)
+	})
+
+	t.Run("DisallowedFull", func(t *testing.T) {
+		allowed := isPrefixSuffixAllowed(ctx, a, "allowed", "bar")
+		require.False(t, allowed)
 	})
 }
 
 func TestGetPaginationInfo(t *testing.T) {
 	t.Run("NoEntries", func(t *testing.T) {
 		paginationInfo, endIndex := getPaginationInfo(0, 10, func(i int) bool { return true })
-		if paginationInfo.StartIndex != 0 {
-			t.Errorf("Expected start index 0, got %d", paginationInfo.StartIndex)
-		}
-		if paginationInfo.TotalEntries != 0 {
-			t.Errorf("Expected total entries 0, got %d", paginationInfo.TotalEntries)
-		}
-		if endIndex != 0 {
-			t.Errorf("Expected end index 0, got %d", endIndex)
-		}
+		require.Equal(t, uint32(0), paginationInfo.StartIndex)
+		require.Equal(t, uint32(0), paginationInfo.TotalEntries)
+		require.Equal(t, 0, endIndex)
 	})
 
 	t.Run("LessThanPageSize", func(t *testing.T) {
 		paginationInfo, endIndex := getPaginationInfo(5, 10, func(i int) bool { return true })
-		if paginationInfo.StartIndex != 0 {
-			t.Errorf("Expected start index 0, got %d", paginationInfo.StartIndex)
-		}
-		if paginationInfo.TotalEntries != 5 {
-			t.Errorf("Expected total entries 5, got %d", paginationInfo.TotalEntries)
-		}
-		if endIndex != 5 {
-			t.Errorf("Expected end index 5, got %d", endIndex)
-		}
+		require.Equal(t, uint32(0), paginationInfo.StartIndex)
+		require.Equal(t, uint32(5), paginationInfo.TotalEntries)
+		require.Equal(t, 5, endIndex)
 	})
 
 	t.Run("ExactPageSize", func(t *testing.T) {
 		paginationInfo, endIndex := getPaginationInfo(10, 10, func(i int) bool { return true })
-		if paginationInfo.StartIndex != 0 {
-			t.Errorf("Expected start index 0, got %d", paginationInfo.StartIndex)
-		}
-		if paginationInfo.TotalEntries != 10 {
-			t.Errorf("Expected total entries 10, got %d", paginationInfo.TotalEntries)
-		}
-		if endIndex != 10 {
-			t.Errorf("Expected end index 10, got %d", endIndex)
-		}
+		require.Equal(t, uint32(0), paginationInfo.StartIndex)
+		require.Equal(t, uint32(10), paginationInfo.TotalEntries)
+		require.Equal(t, 10, endIndex)
 	})
 
 	t.Run("MoreThanPageSize", func(t *testing.T) {
 		paginationInfo, endIndex := getPaginationInfo(15, 10, func(i int) bool { return true })
-		if paginationInfo.StartIndex != 0 {
-			t.Errorf("Expected start index 0, got %d", paginationInfo.StartIndex)
-		}
-		if paginationInfo.TotalEntries != 15 {
-			t.Errorf("Expected total entries 15, got %d", paginationInfo.TotalEntries)
-		}
-		if endIndex != 10 {
-			t.Errorf("Expected end index 10, got %d", endIndex)
-		}
+		require.Equal(t, uint32(0), paginationInfo.StartIndex)
+		require.Equal(t, uint32(15), paginationInfo.TotalEntries)
+		require.Equal(t, 10, endIndex)
 	})
 
 	t.Run("StartAfterMiddle", func(t *testing.T) {
 		paginationInfo, endIndex := getPaginationInfo(20, 5, func(i int) bool { return i >= 10 })
-		if paginationInfo.StartIndex != 10 {
-			t.Errorf("Expected start index 10, got %d", paginationInfo.StartIndex)
-		}
-		if paginationInfo.TotalEntries != 20 {
-			t.Errorf("Expected total entries 20, got %d", paginationInfo.TotalEntries)
-		}
-		if endIndex != 15 {
-			t.Errorf("Expected end index 15, got %d", endIndex)
-		}
+		require.Equal(t, uint32(10), paginationInfo.StartIndex)
+		require.Equal(t, uint32(20), paginationInfo.TotalEntries)
+		require.Equal(t, 15, endIndex)
 	})
 
 	t.Run("StartCloseToEnd", func(t *testing.T) {
 		paginationInfo, endIndex := getPaginationInfo(20, 5, func(i int) bool { return i >= 18 })
-		if paginationInfo.StartIndex != 18 {
-			t.Errorf("Expected start index 18, got %d", paginationInfo.StartIndex)
-		}
-		if paginationInfo.TotalEntries != 20 {
-			t.Errorf("Expected total entries 20, got %d", paginationInfo.TotalEntries)
-		}
-		if endIndex != 20 {
-			t.Errorf("Expected end index 20, got %d", endIndex)
-		}
+		require.Equal(t, uint32(18), paginationInfo.StartIndex)
+		require.Equal(t, uint32(20), paginationInfo.TotalEntries)
+		require.Equal(t, 20, endIndex)
 	})
 }
 
@@ -406,12 +503,8 @@ func TestCreatePaginatedListOperationsResponse(t *testing.T) {
 	t.Run("NoOperations", func(t *testing.T) {
 		allOperations := []*buildqueuestate.OperationState{}
 		response := createPaginatedListOperationsResponse(allOperations, 10, nil)
-		if len(response.Operations) != 0 {
-			t.Errorf("Expected no operations, got %d", len(response.Operations))
-		}
-		if response.PaginationInfo.TotalEntries != 0 {
-			t.Errorf("Expected total entries 0, got %d", response.PaginationInfo.TotalEntries)
-		}
+		require.Len(t, response.Operations, 0)
+		require.Equal(t, uint32(0), response.PaginationInfo.TotalEntries)
 	})
 
 	t.Run("LessThanPageSize", func(t *testing.T) {
@@ -420,12 +513,8 @@ func TestCreatePaginatedListOperationsResponse(t *testing.T) {
 			{Name: "op2"},
 		}
 		response := createPaginatedListOperationsResponse(allOperations, 10, nil)
-		if len(response.Operations) != 2 {
-			t.Errorf("Expected 2 operations, got %d", len(response.Operations))
-		}
-		if response.PaginationInfo.TotalEntries != 2 {
-			t.Errorf("Expected total entries 2, got %d", response.PaginationInfo.TotalEntries)
-		}
+		require.Len(t, response.Operations, 2)
+		require.Equal(t, uint32(2), response.PaginationInfo.TotalEntries)
 	})
 
 	t.Run("ExactPageSize", func(t *testing.T) {
@@ -435,12 +524,8 @@ func TestCreatePaginatedListOperationsResponse(t *testing.T) {
 			{Name: "op3"},
 		}
 		response := createPaginatedListOperationsResponse(allOperations, 3, nil)
-		if len(response.Operations) != 3 {
-			t.Errorf("Expected 3 operations, got %d", len(response.Operations))
-		}
-		if response.PaginationInfo.TotalEntries != 3 {
-			t.Errorf("Expected total entries 3, got %d", response.PaginationInfo.TotalEntries)
-		}
+		require.Len(t, response.Operations, 3)
+		require.Equal(t, uint32(3), response.PaginationInfo.TotalEntries)
 	})
 
 	t.Run("MoreThanPageSize", func(t *testing.T) {
@@ -451,12 +536,8 @@ func TestCreatePaginatedListOperationsResponse(t *testing.T) {
 			{Name: "op4"},
 		}
 		response := createPaginatedListOperationsResponse(allOperations, 2, nil)
-		if len(response.Operations) != 2 {
-			t.Errorf("Expected 2 operations, got %d", len(response.Operations))
-		}
-		if response.PaginationInfo.TotalEntries != 4 {
-			t.Errorf("Expected total entries 4, got %d", response.PaginationInfo.TotalEntries)
-		}
+		require.Len(t, response.Operations, 2)
+		require.Equal(t, uint32(4), response.PaginationInfo.TotalEntries)
 	})
 
 	t.Run("StartAfterMiddle", func(t *testing.T) {
@@ -468,21 +549,11 @@ func TestCreatePaginatedListOperationsResponse(t *testing.T) {
 		}
 		startAfter := &buildqueuestate.ListOperationsRequest_StartAfter{OperationName: "op2"}
 		response := createPaginatedListOperationsResponse(allOperations, 2, startAfter)
-		if len(response.Operations) != 2 {
-			t.Errorf("Expected 2 operations, got %d", len(response.Operations))
-		}
-		if response.Operations[0].Name != "op3" {
-			t.Errorf("Expected operation 'op3', got %s", response.Operations[0].Name)
-		}
-		if response.Operations[1].Name != "op4" {
-			t.Errorf("Expected operation 'op4', got %s", response.Operations[1].Name)
-		}
-		if response.PaginationInfo.StartIndex != 2 {
-			t.Errorf("Expected start index 2, got %d", response.PaginationInfo.StartIndex)
-		}
-		if response.PaginationInfo.TotalEntries != 4 {
-			t.Errorf("Expected total entries 4, got %d", response.PaginationInfo.TotalEntries)
-		}
+		require.Len(t, response.Operations, 2)
+		require.Equal(t, uint32(2), response.PaginationInfo.StartIndex)
+		require.Equal(t, uint32(4), response.PaginationInfo.TotalEntries)
+		require.Equal(t, "op3", response.Operations[0].Name)
+		require.Equal(t, "op4", response.Operations[1].Name)
 	})
 
 	t.Run("StartCloseToEnd", func(t *testing.T) {
@@ -494,18 +565,11 @@ func TestCreatePaginatedListOperationsResponse(t *testing.T) {
 		}
 		startAfter := &buildqueuestate.ListOperationsRequest_StartAfter{OperationName: "op3"}
 		response := createPaginatedListOperationsResponse(allOperations, 2, startAfter)
-		if len(response.Operations) != 1 {
-			t.Errorf("Expected 1 operation, got %d", len(response.Operations))
-		}
-		if response.Operations[0].Name != "op4" {
-			t.Errorf("Expected operation 'op4', got %s", response.Operations[0].Name)
-		}
-		if response.PaginationInfo.StartIndex != 3 {
-			t.Errorf("Expected start index 3, got %d", response.PaginationInfo.StartIndex)
-		}
-		if response.PaginationInfo.TotalEntries != 4 {
-			t.Errorf("Expected total entries 4, got %d", response.PaginationInfo.TotalEntries)
-		}
+
+		require.Len(t, response.Operations, 1)
+		require.Equal(t, uint32(3), response.PaginationInfo.StartIndex)
+		require.Equal(t, uint32(4), response.PaginationInfo.TotalEntries)
+		require.Equal(t, "op4", response.Operations[0].Name)
 	})
 }
 
@@ -516,20 +580,21 @@ func TestListOperations(t *testing.T) {
 				"permittedInstanceNames": structpb.NewListValue(&structpb.ListValue{
 					Values: []*structpb.Value{
 						structpb.NewStringValue("allowed"),
+						structpb.NewStringValue("allowed/foo"),
 					},
 				}),
 			},
 		}),
 	}))), t)
 	bqsClient := mock.NewMockBuildQueueStateClient(ctrl)
-	instanceNameAuthorizer := auth.NewJMESPathExpressionAuthorizer(
+	readAuthorizer := auth.NewJMESPathExpressionAuthorizer(
 		jmespath.MustCompile("contains(authenticationMetadata.private.permittedInstanceNames, instanceName) || instanceName == ''"),
 	)
 	killOperationsAuthorizer := auth.NewJMESPathExpressionAuthorizer(
 		jmespath.MustCompile("contains(authenticationMetadata.private.permittedInstanceNames, instanceName) || instanceName == ''"),
 	)
 
-	bqsServer := NewBuildQueueStateServerImpl(bqsClient, instanceNameAuthorizer, killOperationsAuthorizer, 2)
+	bqsServer := NewBuildQueueStateServerImpl(bqsClient, readAuthorizer, killOperationsAuthorizer, 2)
 
 	operations := []*buildqueuestate.OperationState{
 		{
@@ -644,15 +709,45 @@ func TestListOperations(t *testing.T) {
 					InvocationName: &buildqueuestate.InvocationName{
 						SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
 							PlatformQueueName: &buildqueuestate.PlatformQueueName{
+								InstanceNamePrefix: "allowed",
+							},
+						},
+					},
+					InstanceNameSuffix: "foo",
+				},
+				{
+					InvocationName: &buildqueuestate.InvocationName{
+						SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+							PlatformQueueName: &buildqueuestate.PlatformQueueName{
+								InstanceNamePrefix: "allowed",
+							},
+						},
+					},
+					InstanceNameSuffix: "bar",
+				},
+				{
+					InvocationName: &buildqueuestate.InvocationName{
+						SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+							PlatformQueueName: &buildqueuestate.PlatformQueueName{
 								InstanceNamePrefix: "forbidden",
 							},
 						},
 					},
 				},
+				{
+					InvocationName: &buildqueuestate.InvocationName{
+						SizeClassQueueName: &buildqueuestate.SizeClassQueueName{
+							PlatformQueueName: &buildqueuestate.PlatformQueueName{
+								InstanceNamePrefix: "forbidden",
+							},
+						},
+					},
+					InstanceNameSuffix: "foo",
+				},
 			},
 			PaginationInfo: &buildqueuestate.PaginationInfo{
 				StartIndex:   0,
-				TotalEntries: 2,
+				TotalEntries: 5,
 			},
 		}
 		bqsClient.EXPECT().ListOperations(gomock.Any(), gomock.Any()).Return(clientResponse, nil)
@@ -661,9 +756,9 @@ func TestListOperations(t *testing.T) {
 			PageSize: 5,
 		})
 		require.NoError(t, err)
-		require.Equal(t, clientResponse.Operations[0:1], resp.Operations)
+		require.Equal(t, clientResponse.Operations[0:2], resp.Operations)
 		require.Equal(t, uint32(0), resp.PaginationInfo.StartIndex)
-		require.Equal(t, uint32(1), resp.PaginationInfo.TotalEntries)
+		require.Equal(t, uint32(2), resp.PaginationInfo.TotalEntries)
 	})
 
 	t.Run("AllowEmptyInstanceNames", func(t *testing.T) {
@@ -865,12 +960,12 @@ func TestIsAllowedToKillOperation(t *testing.T) {
 		}),
 	}))), t)
 	bqsClient := mock.NewMockBuildQueueStateClient(ctrl)
-	instanceNameAuthorizer := auth.NewStaticAuthorizer(func(in digest.InstanceName) bool { return true })
+	readAuthorizer := auth.NewStaticAuthorizer(func(in digest.InstanceName) bool { return true })
 	killOperationsAuthorizer := auth.NewJMESPathExpressionAuthorizer(
 		jmespath.MustCompile("contains(authenticationMetadata.private.permittedInstanceNames, instanceName)"),
 	)
 
-	bqsServer := NewBuildQueueStateServerImpl(bqsClient, instanceNameAuthorizer, killOperationsAuthorizer, 2)
+	bqsServer := NewBuildQueueStateServerImpl(bqsClient, readAuthorizer, killOperationsAuthorizer, 2)
 
 	t.Run("EmptyOperationName", func(t *testing.T) {
 		bqsClient.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(nil, status.Errorf(codes.NotFound, "Operation was not found"))
@@ -933,12 +1028,12 @@ func TestCheckKillOperationAuthorization(t *testing.T) {
 	}))), t)
 
 	bqsClient := mock.NewMockBuildQueueStateClient(ctrl)
-	instanceNameAuthorizer := auth.NewStaticAuthorizer(func(in digest.InstanceName) bool { return true })
+	readAuthorizer := auth.NewStaticAuthorizer(func(in digest.InstanceName) bool { return true })
 	killOperationsAuthorizer := auth.NewJMESPathExpressionAuthorizer(
 		jmespath.MustCompile("contains(authenticationMetadata.private.permittedInstanceNames, instanceName)"),
 	)
 
-	bqsServer := NewBuildQueueStateServerImpl(bqsClient, instanceNameAuthorizer, killOperationsAuthorizer, 2)
+	bqsServer := NewBuildQueueStateServerImpl(bqsClient, readAuthorizer, killOperationsAuthorizer, 2)
 
 	t.Run("MethodNotAllowed", func(t *testing.T) {
 		req, err := http.NewRequest("POST", "/api/checkPermissions/killOperation/op1", nil)
@@ -956,7 +1051,7 @@ func TestCheckKillOperationAuthorization(t *testing.T) {
 		require.NoError(t, err)
 
 		req = req.WithContext(ctx)
-		req = mux.SetURLVars(req, map[string]string{"operationName": "op1"})
+		req.SetPathValue("operationName", "op1")
 
 		bqsClient.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(&buildqueuestate.GetOperationResponse{
 			Operation: &buildqueuestate.OperationState{
@@ -983,7 +1078,7 @@ func TestCheckKillOperationAuthorization(t *testing.T) {
 		require.NoError(t, err)
 
 		req = req.WithContext(ctx)
-		req = mux.SetURLVars(req, map[string]string{"operationName": "op2"})
+		req.SetPathValue("operationName", "op2")
 
 		bqsClient.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(&buildqueuestate.GetOperationResponse{
 			Operation: &buildqueuestate.OperationState{
@@ -1010,7 +1105,7 @@ func TestCheckKillOperationAuthorization(t *testing.T) {
 		require.NoError(t, err)
 
 		req = req.WithContext(ctx)
-		req = mux.SetURLVars(req, map[string]string{"operationName": "op3"})
+		req.SetPathValue("operationName", "op3")
 
 		bqsClient.EXPECT().GetOperation(gomock.Any(), gomock.Any()).Return(nil, status.Errorf(codes.NotFound, "Operation was not found"))
 
@@ -1019,5 +1114,43 @@ func TestCheckKillOperationAuthorization(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 		require.JSONEq(t, `{"allowed": false}`, rr.Body.String())
+	})
+}
+
+func TestCensorWorkerState(t *testing.T) {
+	a := auth.NewJMESPathExpressionAuthorizer(
+		jmespath.MustCompile("contains(authenticationMetadata.private.permittedInstanceNames, instanceName) || instanceName == ''"),
+	)
+	ctx := auth.NewContextWithAuthenticationMetadata(context.Background(), util.Must(auth.NewAuthenticationMetadataFromProto(&auth_pb.AuthenticationMetadata{
+		Private: structpb.NewStructValue(&structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"permittedInstanceNames": structpb.NewListValue(&structpb.ListValue{
+					Values: []*structpb.Value{
+						structpb.NewStringValue("allowed/worker"),
+					},
+				}),
+			},
+		}),
+	})))
+
+	t.Run("NoCurrentOperation", func(t *testing.T) {
+		worker := &buildqueuestate.WorkerState{}
+		censorWorkerState(ctx, a, "allowed", worker)
+		require.Nil(t, worker.CurrentOperation)
+	})
+
+	t.Run("AllowedOperation", func(t *testing.T) {
+		operation := &buildqueuestate.OperationState{InstanceNameSuffix: "worker"}
+		worker := &buildqueuestate.WorkerState{CurrentOperation: operation}
+		censorWorkerState(ctx, a, "allowed", worker)
+		require.Same(t, operation, worker.CurrentOperation)
+	})
+
+	t.Run("DeniedOperation", func(t *testing.T) {
+		worker := &buildqueuestate.WorkerState{
+			CurrentOperation: &buildqueuestate.OperationState{InstanceNameSuffix: "forbidden"},
+		}
+		censorWorkerState(ctx, a, "allowed", worker)
+		require.Nil(t, worker.CurrentOperation)
 	})
 }

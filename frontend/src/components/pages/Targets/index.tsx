@@ -1,7 +1,7 @@
 import { DeploymentUnitOutlined } from "@ant-design/icons";
 import { Alert } from "antd";
 import type React from "react";
-import PortalCard from "@/components/PortalCard";
+import { PortalCard } from "@/components/PortalCard";
 import TargetGrid from "@/components/Targets/TargetGrid";
 
 type Props = React.ComponentProps<typeof TargetGrid>;
@@ -14,7 +14,7 @@ export const TargetsPage: React.FC<Props> = (props) => {
         <Alert
           key="search-by-label"
           showIcon
-          message="Search by label to further refine your result"
+          title="Search by label to further refine your result"
           type="info"
         />,
       ]}

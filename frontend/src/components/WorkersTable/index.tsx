@@ -8,7 +8,7 @@ import { Route, type WorkerListStatus } from "@/routes/scheduler.worker";
 import themeStyles from "@/theme/theme.module.css";
 import WorkersTablePageSelector from "../WorkersTablePageSelector";
 import WorkersTableTypeSelector from "../WorkersTableTypeSelector";
-import getColumns from "./Columns";
+import { columns } from "./Columns";
 
 type Props = {
   workerStatusFilter: WorkerListStatus;
@@ -59,7 +59,7 @@ const WorkersTable: React.FC<Props> = ({
   };
 
   return (
-    <Space direction="vertical" style={{ width: "100%" }}>
+    <Space orientation="vertical" style={{ width: "100%" }}>
       <Row>
         <Flex style={{ width: "100%" }} justify="space-between" wrap>
           <WorkersTableTypeSelector
@@ -78,7 +78,7 @@ const WorkersTable: React.FC<Props> = ({
       </Row>
       <Row>
         <Table
-          columns={getColumns()}
+          columns={columns}
           loading={isLoading}
           bordered={true}
           style={{ width: "100%" }}

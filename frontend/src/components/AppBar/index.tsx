@@ -1,102 +1,35 @@
 import { MenuOutlined } from "@ant-design/icons";
-import { Button, Divider, Drawer, Layout } from "antd";
-import type { ItemType } from "antd/lib/menu/interface";
-import type React from "react";
-import { useEffect, useState } from "react";
+import { Button, Divider, Drawer, Grid, Layout } from "antd";
+import { type FC, useState } from "react";
 import AppBarButtons from "@/components/AppBar/AppBarButtons";
-import AppBarMenu from "@/components/AppBar/AppBarMenu";
+import { AppBarMenu } from "@/components/AppBar/AppBarMenu";
 import AppBarTitle from "@/components/AppBar/AppBarTitle";
 import styles from "@/components/AppBar/index.module.css";
 import FooterBar from "@/components/FooterBar";
-import { getItem } from "@/components/Utilities/navigation";
-import { env } from "@/utils/env";
-import useScreenSize from "@/utils/screen";
 
-const getAppBarMenuItems = (): ItemType[] => {
-  const items: (ItemType | undefined)[] = [
-    getItem({
-      depth: 0,
-      href: "/builds",
-      title: "Builds",
-      requiredFeatures: [env.featureFlags?.bes?.pageBuilds],
-    }),
-    getItem({
-      depth: 0,
-      href: "/bazel-invocations",
-      title: "Invocations",
-      requiredFeatures: [env.featureFlags?.bes?.pageInvocations],
-    }),
-    getItem({
-      depth: 0,
-      href: "/trends",
-      title: "Trends",
-      requiredFeatures: [env.featureFlags?.bes?.pageTrends],
-    }),
-    getItem({
-      depth: 0,
-      href: "/tests",
-      title: "Tests",
-      requiredFeatures: [env.featureFlags?.bes?.pageTests],
-    }),
-    getItem({
-      depth: 0,
-      href: "/targets",
-      title: "Targets",
-      requiredFeatures: [env.featureFlags?.bes?.pageTargets],
-    }),
-    getItem({
-      depth: 0,
-      href: "/browser",
-      title: "Browser",
-      requiredFeatures: [env.featureFlags?.browser],
-    }),
-    getItem({
-      depth: 0,
-      href: "/scheduler",
-      title: "Scheduler",
-      requiredFeatures: [env.featureFlags?.scheduler],
-    }),
-    getItem({
-      depth: 0,
-      href: "/operations",
-      title: "Operations",
-      requiredFeatures: [env.featureFlags?.scheduler],
-    }),
-  ];
-  return items.filter((item): item is ItemType => item !== undefined);
-};
+const { useBreakpoint } = Grid;
 
-const APP_BAR_MENU_ITEMS: ItemType[] = getAppBarMenuItems();
-
-export const SIDE_BAR_MINIMUM_SCREEN_WIDTH = 932;
-
-type Props = {
-  toggleTheme: () => void;
-  prefersDark: boolean;
-};
-
-const AppBar: React.FC<Props> = ({ toggleTheme, prefersDark }) => {
-  const screenSize = useScreenSize();
-  const showHeaderMenu = screenSize.width > SIDE_BAR_MINIMUM_SCREEN_WIDTH;
+const AppBar: FC = () => {
+  const bp = useBreakpoint();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  useEffect(() => {
-    if (showHeaderMenu) {
-      setIsDrawerOpen(false);
-    }
-  }, [showHeaderMenu]);
 
   return (
     <>
-      <Layout.Header className={styles.header}>
+      <Layout.Header
+        style={{
+          inset: 0,
+          display: "grid",
+          gridTemplateColumns: "max-content 1fr max-content",
+          alignItems: "center",
+          position: bp.xl ? "static" : "fixed",
+          zIndex: 3,
+        }}
+      >
         <AppBarTitle />
-        {showHeaderMenu ? (
+        {bp.xl ? (
           <>
-            <AppBarMenu mode="horizontal" items={APP_BAR_MENU_ITEMS} />
-            <AppBarButtons
-              toggleTheme={toggleTheme}
-              prefersDark={prefersDark}
-            />
+            <AppBarMenu mode="horizontal" />
+            <AppBarButtons />
           </>
         ) : (
           <Button
@@ -108,22 +41,24 @@ const AppBar: React.FC<Props> = ({ toggleTheme, prefersDark }) => {
           </Button>
         )}
       </Layout.Header>
-      <Drawer
-        placement="right"
-        closable={true}
-        onClose={() => {
-          setIsDrawerOpen(false);
-        }}
-        onClick={() => {
-          setIsDrawerOpen(false);
-        }}
-        open={isDrawerOpen}
-        footer={<FooterBar className={styles.footerBar} />}
-      >
-        <AppBarMenu mode="inline" items={APP_BAR_MENU_ITEMS} />
-        <Divider orientation="center" type="horizontal" />
-        <AppBarButtons toggleTheme={toggleTheme} prefersDark={prefersDark} />
-      </Drawer>
+      {bp.xl ? null : (
+        <Drawer
+          placement="right"
+          closable={true}
+          onClose={() => {
+            setIsDrawerOpen(false);
+          }}
+          onClick={() => {
+            setIsDrawerOpen(false);
+          }}
+          open={isDrawerOpen}
+          footer={<FooterBar className={styles.footerBar} />}
+        >
+          <AppBarMenu mode="inline" />
+          <Divider orientation="horizontal" />
+          <AppBarButtons />
+        </Drawer>
+      )}
     </>
   );
 };

@@ -14,13 +14,14 @@ import type {
   OnBazelInvocationFilterChange,
 } from "@/components/PageCursorTable/types";
 import { tableFiltersToGraphqlWhere } from "@/components/PageCursorTable/utils";
-import PortalCard from "@/components/PortalCard";
+import { PortalCard } from "@/components/PortalCard";
 import type {
   AuthenticatedUserNodeFragmentFragment,
   BazelInvocationNodeFragment,
 } from "@/graphql/__generated__/graphql";
 import themeStyles from "@/theme/theme.module.css";
 import { parseGraphqlEdgeList } from "@/utils/parseGraphqlEdgeList";
+import { flattenUserInfo } from "./flattenUserInfo";
 
 interface Props {
   pageSize: number | undefined;
@@ -36,7 +37,7 @@ export const UserDetailsPage: React.FC<Props> = ({
   getPaginationUpdateLink,
 }) => {
   const invocations = parseGraphqlEdgeList(user.bazelInvocations);
-  const userInfo = user.userInfo || {};
+  const userInfo = flattenUserInfo(user.userInfo);
 
   const tableColumns = [
     invocationIdColumn,
@@ -53,7 +54,7 @@ export const UserDetailsPage: React.FC<Props> = ({
         <span key="title">User {user.displayName || user.userUUID}</span>,
       ]}
     >
-      <Space direction="vertical" className={themeStyles.space}>
+      <Space orientation="vertical" className={themeStyles.space}>
         {Object.keys(userInfo).length > 0 && (
           <Collapse
             bordered={false}

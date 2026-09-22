@@ -4,13 +4,13 @@ import type React from "react";
 import { PageCursorTable } from "@/components/PageCursorTable";
 import type { GetPaginationUpdateLinkType } from "@/components/PageCursorTable/types";
 import { tableFiltersToGraphqlWhere } from "@/components/PageCursorTable/utils";
+import { PortalCard } from "@/components/PortalCard";
 import type {
   InvocationTargetDetailsFragment,
   InvocationTargetWhereInput,
   PageInfo,
   TargetDetailsFragment,
 } from "@/graphql/__generated__/graphql";
-import PortalCard from "../../PortalCard";
 import { columns } from "./Columns";
 
 interface Props {
@@ -31,12 +31,12 @@ export const TargetDetailsPage: React.FC<Props> = ({
   invocationTargets,
 }) => {
   return (
-    <Space direction="vertical" size="middle" style={{ display: "flex" }}>
+    <Space orientation="vertical" size="middle" style={{ display: "flex" }}>
       <PortalCard
         icon={<DeploymentUnitOutlined />}
         titleBits={[<span key="title">Target Details</span>]}
       >
-        <Space direction="vertical" size="middle" style={{ display: "flex" }}>
+        <Space orientation="vertical" size="middle" style={{ display: "flex" }}>
           <Descriptions column={1}>
             <Descriptions.Item label="Instance Name">
               {targetData.instanceName.name || "-"}
@@ -72,7 +72,7 @@ export const TargetDetailsPage: React.FC<Props> = ({
                   record.failureMessage !== undefined &&
                   record.failureMessage !== "",
                 expandedRowRender: (record) => (
-                  <Space direction="vertical" style={{ paddingLeft: "48px" }}>
+                  <Space orientation="vertical" style={{ paddingLeft: "48px" }}>
                     <strong>Failure Message:</strong>
                     <pre
                       style={{

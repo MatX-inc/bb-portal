@@ -27,7 +27,7 @@ const OperationsTokenFilter: React.FC<Props> = ({ tokenFilter }) => {
                 search: (prev) => ({
                   ...prev,
                   tokenFilter: undefined,
-                  status: undefined,
+                  statusFilter: undefined,
                 }),
               })
             }
