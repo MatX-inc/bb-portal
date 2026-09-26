@@ -578,10 +578,11 @@ func (x *ApplicationConfiguration) GetGraphqlApiServiceConfiguration() *GraphqlA
 }
 
 type Database_PostgresSource struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	ConnectionString string                 `protobuf:"bytes,1,opt,name=connection_string,json=connectionString,proto3" json:"connection_string,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	ConnectionString     string                 `protobuf:"bytes,1,opt,name=connection_string,json=connectionString,proto3" json:"connection_string,omitempty"`
+	GcpIamAuthentication bool                   `protobuf:"varint,102,opt,name=gcp_iam_authentication,json=gcpIamAuthentication,proto3" json:"gcp_iam_authentication,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *Database_PostgresSource) Reset() {
@@ -619,6 +620,13 @@ func (x *Database_PostgresSource) GetConnectionString() string {
 		return x.ConnectionString
 	}
 	return ""
+}
+
+func (x *Database_PostgresSource) GetGcpIamAuthentication() bool {
+	if x != nil {
+		return x.GcpIamAuthentication
+	}
+	return false
 }
 
 type Database_DatabaseConnectionPoolConfiguration struct {
@@ -986,13 +994,14 @@ var File_github_com_buildbarn_bb_portal_pkg_proto_configuration_bb_portal_bb_por
 
 const file_github_com_buildbarn_bb_portal_pkg_proto_configuration_bb_portal_bb_portal_proto_rawDesc = "" +
 	"\n" +
-	"Pgithub.com/buildbarn/bb-portal/pkg/proto/configuration/bb_portal/bb_portal.proto\x12!buildbarn.configuration.bb_portal\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bgoogle/protobuf/empty.proto\x1aNgithub.com/buildbarn/bb-portal/pkg/proto/configuration/frontend/frontend.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/auth/auth.proto\x1aQgithub.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore/blobstore.proto\x1aKgithub.com/buildbarn/bb-storage/pkg/proto/configuration/global/global.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\x1aPgithub.com/buildbarn/bb-storage/pkg/proto/configuration/http/server/server.proto\x1aOgithub.com/buildbarn/bb-storage/pkg/proto/configuration/jmespath/jmespath.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/zstd/zstd.proto\"\xd2\b\n" +
+	"Pgithub.com/buildbarn/bb-portal/pkg/proto/configuration/bb_portal/bb_portal.proto\x12!buildbarn.configuration.bb_portal\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bgoogle/protobuf/empty.proto\x1aNgithub.com/buildbarn/bb-portal/pkg/proto/configuration/frontend/frontend.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/auth/auth.proto\x1aQgithub.com/buildbarn/bb-storage/pkg/proto/configuration/blobstore/blobstore.proto\x1aKgithub.com/buildbarn/bb-storage/pkg/proto/configuration/global/global.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/grpc/grpc.proto\x1aPgithub.com/buildbarn/bb-storage/pkg/proto/configuration/http/server/server.proto\x1aOgithub.com/buildbarn/bb-storage/pkg/proto/configuration/jmespath/jmespath.proto\x1aGgithub.com/buildbarn/bb-storage/pkg/proto/configuration/zstd/zstd.proto\"\x88\t\n" +
 	"\bDatabase\x12X\n" +
 	"\bpostgres\x18\x02 \x01(\v2:.buildbarn.configuration.bb_portal.Database.PostgresSourceH\x00R\bpostgres\x12\x93\x01\n" +
 	"\x1dconnection_pool_configuration\x18\x03 \x01(\v2O.buildbarn.configuration.bb_portal.Database.DatabaseConnectionPoolConfigurationR\x1bconnectionPoolConfiguration\x12u\n" +
-	"\x15cleanup_configuration\x18\x04 \x01(\v2@.buildbarn.configuration.bb_portal.Database.CleanupConfigurationR\x14cleanupConfiguration\x1a=\n" +
+	"\x15cleanup_configuration\x18\x04 \x01(\v2@.buildbarn.configuration.bb_portal.Database.CleanupConfigurationR\x14cleanupConfiguration\x1as\n" +
 	"\x0ePostgresSource\x12+\n" +
-	"\x11connection_string\x18\x01 \x01(\tR\x10connectionString\x1a\xb0\x02\n" +
+	"\x11connection_string\x18\x01 \x01(\tR\x10connectionString\x124\n" +
+	"\x16gcp_iam_authentication\x18f \x01(\bR\x14gcpIamAuthentication\x1a\xb0\x02\n" +
 	"#DatabaseConnectionPoolConfiguration\x120\n" +
 	"\x14max_open_connections\x18\x01 \x01(\x05R\x12maxOpenConnections\x120\n" +
 	"\x14max_idle_connections\x18\x02 \x01(\x05R\x12maxIdleConnections\x12Q\n" +

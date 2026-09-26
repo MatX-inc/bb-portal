@@ -10,6 +10,7 @@ import (
 	dbdialect "entgo.io/ent/dialect"
 
 	"github.com/buildbarn/bb-portal/internal/database"
+	"github.com/buildbarn/bb-portal/internal/database/gcpiam"
 	"github.com/buildbarn/bb-portal/pkg/proto/configuration/bb_portal"
 	"github.com/buildbarn/bb-storage/pkg/util"
 
@@ -53,8 +54,12 @@ func NewSQLConnectionFromConfiguration(dbConfig *bb_portal.Database, tracerProvi
 			return "", nil, status.Error(codes.InvalidArgument, "Empty connection string for postgres database")
 		}
 		dialect = dbdialect.Postgres
+		driverName := "pgx"
+		if dbConfig.Postgres.GcpIamAuthentication {
+			driverName = gcpiam.DriverName
+		}
 		db, err = otelsql.Open(
-			"pgx",
+			driverName,
 			dbConfig.Postgres.ConnectionString,
 			otelsql.WithTracerProvider(tracerProvider),
 			otelsql.WithAttributes(semconv.DBSystemNamePostgreSQL),
