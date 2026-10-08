@@ -32,10 +32,22 @@ WHERE ctid IN (
         ctid >= format('(%s,0)', $1::bigint)::tid
         AND ctid < format('(%s,0)', $1::bigint + $2::bigint)::tid
         AND NOT EXISTS (
-            SELECT 1 
+            SELECT 1
             FROM invocation_targets it
-            JOIN test_summaries ts ON ts.invocation_target_test_summary = it.id
             WHERE it.target_invocation_targets = test_targets.target_id
+                AND EXISTS (
+                    -- OFFSET 0 keeps the summary check a per-row test. Joined
+                    -- instead, invocation_targets and test_summaries form their
+                    -- own relation, planned on total cost, where the anti-join's
+                    -- early exit is invisible: the planner takes a bitmap scan,
+                    -- which materialises every invocation_target of the target
+                    -- before yielding any. A target has tens of thousands of
+                    -- them and the anti-join consumes a handful.
+                    SELECT 1
+                    FROM test_summaries ts
+                    WHERE ts.invocation_target_test_summary = it.id
+                    OFFSET 0
+                )
         )
     FOR UPDATE SKIP LOCKED
     LIMIT $3::bigint

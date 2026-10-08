@@ -25,16 +25,32 @@ const OperationsFilterSchema = z
 
 export type OperationsFilterParams = z.infer<typeof OperationsFilterSchema>;
 
+// Token pools are keyed by instance name prefix and token name. With
+// blockedOnly set, only operations parked on the pool are listed.
+const OperationsTokenFilterSchema = z
+  .object({
+    instanceNamePrefix: z.string(),
+    name: z.string(),
+    blockedOnly: z.boolean().optional(),
+  })
+  .optional();
+
+export type OperationsTokenFilterParams = z.infer<
+  typeof OperationsTokenFilterSchema
+>;
+
 const OperationsSearchSchema = z.object({
   filter: OperationsFilterSchema,
+  tokenFilter: OperationsTokenFilterSchema,
   statusFilter: z.enum(OperationStatus).optional(),
 });
 
 export const Route = createFileRoute("/operations/")({
   component: RouteComponent,
   validateSearch: (search) => OperationsSearchSchema.parse(search),
-  loaderDeps: ({ search: { filter, statusFilter } }) => ({
+  loaderDeps: ({ search: { filter, tokenFilter, statusFilter } }) => ({
     filter,
+    tokenFilter,
     statusFilter: statusFilter ?? OperationStatus.ALL,
   }),
   loader: async ({ deps }) => {
@@ -51,6 +67,9 @@ export const Route = createFileRoute("/operations/")({
       pageSize: PAGE_SIZE,
       filterInvocationId: invocationFilter,
       filterStage: getExecutionStageFromOperationStatus(deps.statusFilter),
+      filterTokenName: deps.tokenFilter?.name,
+      filterTokenInstanceNamePrefix: deps.tokenFilter?.instanceNamePrefix,
+      filterTokenBlockedOnly: deps.tokenFilter?.blockedOnly,
     });
 
     return { operations: response.operations };
@@ -60,7 +79,7 @@ export const Route = createFileRoute("/operations/")({
 
 function RouteComponent() {
   const navigate = Route.useNavigate();
-  const { filter, statusFilter } = Route.useLoaderDeps();
+  const { filter, tokenFilter, statusFilter } = Route.useLoaderDeps();
   const { operations } = Route.useLoaderData();
 
   const onStatusFilterChange = (value: OperationStatus): void => {
@@ -77,6 +96,7 @@ function RouteComponent() {
   return (
     <OperationsPage
       filter={filter}
+      tokenFilter={tokenFilter}
       statusFilter={statusFilter}
       onStatusFilterChange={onStatusFilterChange}
       operations={operations}

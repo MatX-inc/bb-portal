@@ -96,14 +96,7 @@ ORDER BY resolved_inputs.input_order
 RETURNING id;
 
 -- name: CreateTestActionOutputAssociation :execrows
-INSERT INTO test_action_outputs (
-    test_result_id,
-    file_id
-)
-SELECT
-    input.test_result_id,
-    f.id
-FROM (
+WITH input AS (
     SELECT
         unnest(sqlc.arg(test_result_id)::bigint[]) AS test_result_id,
         unnest(sqlc.arg(file_paths)::text[]) AS file_path,
@@ -111,15 +104,37 @@ FROM (
         unnest(sqlc.arg(digest_functions)::smallint[]) AS digest_function,
         unnest(sqlc.arg(hashes)::bytea[]) AS hash,
         unnest(sqlc.arg(size_bytes)::bigint[]) AS size_bytes
-) AS input
-JOIN file_paths fp
-    ON fp.bep_instance_name_id = sqlc.arg(bep_instance_name_id)::bigint
-    AND fp.path = input.file_path
-JOIN digests d
-    ON d.rev2_instance_name = input.rev2_instance_name
-    AND d.digest_function = input.digest_function
-    AND d.hash = input.hash
-    AND d.size_bytes = input.size_bytes
+), resolved AS MATERIALIZED (
+    -- MATERIALIZED is a planner fence, not decoration: the unique index on
+    -- files(file_path_id, digest_id) is usable only once both ids are known,
+    -- and unnest() of a parameter carries no statistics to show that. Without
+    -- the fence the planner may resolve the digest alone and expand to every
+    -- file sharing it.
+    SELECT
+        input.test_result_id,
+        fp.id AS file_path_id,
+        d.id AS digest_id
+    FROM input
+    JOIN file_paths fp
+        ON fp.bep_instance_name_id = sqlc.arg(bep_instance_name_id)::bigint
+        AND fp.path = input.file_path
+    JOIN digests d
+        ON d.rev2_instance_name = input.rev2_instance_name
+        AND d.digest_function = input.digest_function
+        AND d.hash = input.hash
+        AND d.size_bytes = input.size_bytes
+)
+INSERT INTO test_action_outputs (
+    test_result_id,
+    file_id
+)
+SELECT
+    resolved.test_result_id,
+    f.id
+FROM resolved
 JOIN files f
-    ON f.file_path_id = fp.id
-    AND f.digest_id = d.id;
+    ON f.file_path_id = resolved.file_path_id
+    AND f.digest_id = resolved.digest_id
+    -- Fixed insertion order, as in the sibling bulk inserts: concurrent
+    -- batches with overlapping rows must not deadlock each other.
+ORDER BY resolved.test_result_id, f.id;

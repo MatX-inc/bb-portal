@@ -21,6 +21,16 @@ message Database {
     // Database connection string for pgx, see:
     // https://pkg.go.dev/github.com/jackc/pgx/v5
     string connection_string = 1;
+
+    // Authenticate to Cloud SQL with an IAM access token from Application
+    // Default Credentials instead of a password. The connection string
+    // names the IAM principal as the user (a service account without its
+    // ".gserviceaccount.com" suffix) and carries no password. Needs the
+    // instance flag cloudsql.iam_authentication and
+    // roles/cloudsql.instanceUser on the principal.
+    //
+    // MatX-carried; numbered from 100 to stay clear of upstream.
+    bool gcp_iam_authentication = 102;
   }
 
   message DatabaseConnectionPoolConfiguration {
