@@ -279,6 +279,12 @@ func (r *queryResolver) FindBuilds(ctx context.Context, after *entgql.Cursor[int
 	return r.db.Ent().Build.Query().Paginate(ctx, after, first, before, last, ent.WithBuildFilter(where.Filter), ent.WithBuildOrder(orderBy))
 }
 
+// FindInvocationTargets is the resolver for the findInvocationTargets field.
+func (r *queryResolver) FindInvocationTargets(ctx context.Context, after *entgql.Cursor[int64], first *int, before *entgql.Cursor[int64], last *int, where *ent.InvocationTargetWhereInput) (*ent.InvocationTargetConnection, error) {
+	helpers.PaginationCursorsToUTC(after, before)
+	return r.db.Ent().InvocationTarget.Query().Paginate(ctx, after, first, before, last, ent.WithInvocationTargetFilter(where.Filter))
+}
+
 // FindTargets is the resolver for the findTargets field.
 func (r *queryResolver) FindTargets(ctx context.Context, after *entgql.Cursor[int64], first *int, before *entgql.Cursor[int64], last *int, where *ent.TargetWhereInput) (*ent.TargetConnection, error) {
 	helpers.PaginationCursorsToUTC(after, before)
