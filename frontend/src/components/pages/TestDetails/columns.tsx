@@ -4,12 +4,17 @@ import {
   type CacheLocation,
   CacheLocationTag,
 } from "@/components/CacheLocationTag";
-import type { TestSummaryRowFragment } from "@/graphql/__generated__/graphql";
+import type { TestRunRowFragment } from "@/graphql/__generated__/graphql";
 import styles from "@/theme/theme.module.css";
 import { readableDurationFromMilliseconds } from "@/utils/time";
 import { TestStatusTag } from "../../TestStatusTag";
 
-export type TestDetailsRowType = TestSummaryRowFragment & {
+// A row is one test summary, flattened back onto the invocation target it
+// came from, because the page paginates invocation targets.
+export type TestDetailsRowType = NonNullable<
+  TestRunRowFragment["testSummary"]
+>[number] & {
+  invocationTarget: Pick<TestRunRowFragment, "id" | "bazelInvocation">;
   cacheLocation: CacheLocation;
 };
 

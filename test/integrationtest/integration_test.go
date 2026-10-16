@@ -778,6 +778,14 @@ var (
 					"get tests details": {
 						variables: testkit.Variables{
 							"targetID": "VGFyZ2V0OjI5",
+							"where": map[string]interface{}{
+								"hasTargetWith": []interface{}{
+									map[string]interface{}{
+										"id": "VGFyZ2V0OjI5",
+									},
+								},
+								"hasTestSummary": true,
+							},
 						},
 					},
 				},

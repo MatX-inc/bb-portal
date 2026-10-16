@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "probe_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/buildbarn/bb-portal/internal/database/gcpiam/probe",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//internal/database/gcpiam",
+        "@com_github_uptrace_opentelemetry_go_extra_otelsql//:otelsql",
+    ],
+)
+
+go_binary(
+    name = "probe",
+    embed = [":probe_lib"],
+    visibility = ["//visibility:private"],
+)

@@ -41,14 +41,20 @@ const sizeClassColumn: ColumnType<PlatformQueueTableState> = {
 const queuedOperationsColumn: ColumnType<PlatformQueueTableState> = {
   key: "queuedOperations",
   title: "Queued operations",
-  render: (_, record) => (
-    <Typography.Text>
-      {(record.sizeClassQueues[0].rootInvocation?.queuedOperationsCount
-        ?.direct ?? 0) +
-        (record.sizeClassQueues[0].rootInvocation?.queuedOperationsCount
-          ?.indirect ?? 0)}
-    </Typography.Text>
-  ),
+  render: (_, record) => {
+    const rootInvocation = record.sizeClassQueues[0].rootInvocation;
+    const queued =
+      (rootInvocation?.queuedOperationsCount?.direct ?? 0) +
+      (rootInvocation?.queuedOperationsCount?.indirect ?? 0);
+    // Operations waiting for tokens are not counted as queued.
+    const blocked = rootInvocation?.blockedOperationsCount ?? 0;
+    return (
+      <Typography.Text>
+        {queued}
+        {blocked > 0 && ` (+${blocked} blocked on tokens)`}
+      </Typography.Text>
+    );
+  },
 };
 
 const executingWorkersColumn: ColumnType<PlatformQueueTableState> = {

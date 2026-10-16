@@ -22,18 +22,16 @@ export const GET_TEST_DETAILS = gql(/* GraphQL */ `
     $first: Int
     $before: Cursor
     $last: Int
-    $orderBy: TestSummaryOrder
-    $where: TestSummaryWhereInput
+    $where: InvocationTargetWhereInput
   ){
     getTarget(id: $targetID ) {
       ...TestSummaryTargetDetails
     }
-    findTestSummaries(
+    findInvocationTargets(
       after: $after
       first: $first
       before: $before
       last: $last
-      orderBy: $orderBy
       where: $where
     ) {
       pageInfo {
@@ -44,7 +42,7 @@ export const GET_TEST_DETAILS = gql(/* GraphQL */ `
       }
       edges {
         node {
-          ...TestSummaryRow
+          ...TestRunRow
         }
       }
     }
@@ -64,25 +62,30 @@ const TEST_SUMMARY_TARGET_DETAILS_FRAGMENT = gql(/* GraphQL */ `
   } 
 `);
 
-const TEST_SUMMARY_ROW_FRAGMENT = gql(/* GraphQL */ `
-  fragment TestSummaryRow on TestSummary {
+// Rooted on InvocationTarget, not TestSummary: paginating the test summaries
+// makes the sort key test_summaries.id, which no index can supply until every
+// matching summary has been resolved. Paginating the invocation targets puts
+// the LIMIT on the table the filter selects, so the semi-join stops once the
+// page is full.
+const TEST_RUN_ROW_FRAGMENT = gql(/* GraphQL */ `
+  fragment TestRunRow on InvocationTarget {
     id
-    overallStatus
-    runCount
-    attemptCount
-    shardCount
-    firstStartTime
-    totalRunDurationInMs
-    testResults {
+    bazelInvocation {
       id
-      cachedLocally
-      cachedRemotely
+      invocationID
     }
-    invocationTarget {
+    testSummary {
       id
-      bazelInvocation {
+      overallStatus
+      runCount
+      attemptCount
+      shardCount
+      firstStartTime
+      totalRunDurationInMs
+      testResults {
         id
-        invocationID
+        cachedLocally
+        cachedRemotely
       }
     }
   } 
@@ -110,21 +113,20 @@ export const Route = createFileRoute("/targets/$targetID/tests")({
       variables: {
         targetID: params.targetID,
         where: {
-          hasInvocationTargetWith: [
+          hasTargetWith: [
             {
-              hasTargetWith: [
-                {
-                  id: params.targetID,
-                },
-              ],
+              id: params.targetID,
             },
           ],
+          // Without this the page would list builds of the target that were
+          // never run as tests, as blank rows.
+          hasTestSummary: true,
         },
         ...pagination,
       },
       fetchPolicy: "network-only",
     });
-    if (!data?.getTarget || !data?.findTestSummaries) {
+    if (!data?.getTarget || !data?.findInvocationTargets) {
       throw new NotFoundError("test", error?.message);
     }
     const target = getFragmentData(
@@ -132,18 +134,26 @@ export const Route = createFileRoute("/targets/$targetID/tests")({
       data.getTarget,
     );
     const testSummaries = parseGraphqlEdgeListWithFragment(
-      TEST_SUMMARY_ROW_FRAGMENT,
-      data.findTestSummaries,
-    ).map((ts) => ({
-      ...ts,
-      cacheLocation: cacheLocationFromTestResults(ts.testResults),
-    }));
+      TEST_RUN_ROW_FRAGMENT,
+      data.findInvocationTargets,
+    ).flatMap((invocationTarget) =>
+      // One summary per invocation target in practice; the edge is a list
+      // because the schema does not mark it unique.
+      (invocationTarget.testSummary ?? []).map((ts) => ({
+        ...ts,
+        invocationTarget: {
+          id: invocationTarget.id,
+          bazelInvocation: invocationTarget.bazelInvocation,
+        },
+        cacheLocation: cacheLocationFromTestResults(ts.testResults),
+      })),
+    );
 
     return {
       target,
       testSummaries,
       pageSize,
-      pageInfo: data.findTestSummaries.pageInfo,
+      pageInfo: data.findInvocationTargets.pageInfo,
     };
   },
   head: (_ctx) => {

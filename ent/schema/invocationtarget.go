@@ -86,6 +86,11 @@ func (InvocationTarget) Indexes() []ent.Index {
 func (InvocationTarget) Annotations() []schema.Annotation {
 	return []schema.Annotation{
 		entgql.RelayConnection(),
+		// A root connection, not just the edge off Target. Paginating the
+		// edge goes through entgql.LimitPerRow, a window function with no
+		// early exit; a root connection gets a plain ORDER BY ... LIMIT, so
+		// a semi-join can stop once the page is full.
+		entgql.QueryField("findInvocationTargets"),
 	}
 }
 
