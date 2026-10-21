@@ -36,7 +36,7 @@ require (
 	github.com/hedwigz/entviz v0.0.0-20221011080911-9d47f6f1d818
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/klauspost/compress v1.18.6
+	github.com/klauspost/compress v1.18.7
 	github.com/lib/pq v1.12.3
 	github.com/machinebox/graphql v0.2.2
 	github.com/pkg/errors v0.9.1
