@@ -29,7 +29,7 @@
     "@tanstack/react-query-devtools": "^5.95.0",
     "@tanstack/react-router": "^1.168.2",
     "@tanstack/react-router-devtools": "^1.166.11",
-    "@tanstack/router-plugin": "^1.166.3",
+    "@tanstack/router-plugin": "^1.168.48",
     "ansi_up": "^6.0.2",
     "antd": "^6.5.0",
     "dayjs": "^1.11.11",
@@ -43,7 +43,7 @@
     "recharts": "^3.8.0",
     "uuid": "^14.0.1",
     "virtua": "^0.47.1",
-    "zod": "^4.3.6"
+    "zod": "^4.6.7"
   },
   "engines": {
     "npm": ">=11.10.0",
